@@ -5,7 +5,7 @@ package com.serenegiant.usb;
  *
  * Fixed the issue when reading filter definition from xml file
  * that undefined null filter(that match all device) is generateed.
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * This class originally came from
  * com.android.server.usb.UsbSettingsManager.DeviceFilter
@@ -44,6 +44,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -57,6 +58,130 @@ public final class DeviceFilter implements Parcelable {
 
 	private static final String TAG = "DeviceFilter";
 
+	/**
+	 * 指定したxmlリソースからDeviceFilterリストを生成する
+	 * @param context
+	 * @param deviceFilterXmlId
+	 * @return
+	 */
+	public static List<DeviceFilter> getDeviceFilters(
+		@NonNull final Context context,
+		@XmlRes final int deviceFilterXmlId) {
+
+		final XmlPullParser parser = context.getResources().getXml(deviceFilterXmlId);
+		final List<DeviceFilter> deviceFilters = new ArrayList<DeviceFilter>();
+		try {
+			int eventType = parser.getEventType();
+			while (eventType != XmlPullParser.END_DOCUMENT) {
+	            if (eventType == XmlPullParser.START_TAG) {
+					final DeviceFilter deviceFilter = readEntryOne(context, parser);
+					if (deviceFilter != null) {
+						deviceFilters.add(deviceFilter);
+					}
+	            }
+				eventType = parser.next();
+			}
+		} catch (final XmlPullParserException e) {
+			Log.d(TAG, "XmlPullParserException", e);
+		} catch (final IOException e) {
+			Log.d(TAG, "IOException", e);
+		}
+
+		return Collections.unmodifiableList(deviceFilters);
+	}
+
+	@Nullable
+	public static DeviceFilter readEntryOne(
+		@NonNull final Context context,
+		@NonNull final XmlPullParser parser)
+			throws XmlPullParserException, IOException {
+
+		int vendorId = -1;
+		int productId = -1;
+		int deviceClass = -1;
+		int deviceSubclass = -1;
+		int deviceProtocol = -1;
+		boolean exclude = false;
+		String manufacturerName = null;
+		String productName = null;
+		String serialNumber = null;
+		int[] intfClass = null, intfSubClass = null, intfProtocol = null;
+		boolean hasValue = false;
+
+		String tag;
+        int eventType = parser.getEventType();
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+        	tag = parser.getName();
+        	if ("usb-device".equalsIgnoreCase(tag)) {
+        		if (eventType == XmlPullParser.START_TAG) {
+        			hasValue = true;
+					vendorId = getAttribute(context, parser, null, "vendor-id", -1);
+        			if (vendorId == -1) {
+        				vendorId = getAttribute(context, parser, null, "vendorId", -1);
+        			}
+					if (vendorId == -1) {
+	         			vendorId = getAttribute(context, parser, null, "venderId", -1);
+					}
+    				productId = getAttribute(context, parser, null, "product-id", -1);
+        			if (productId == -1) {
+            			productId = getAttribute(context, parser, null, "productId", -1);
+					}
+        			deviceClass = getAttribute(context, parser, null, "class", -1);
+        			deviceSubclass = getAttribute(context, parser, null, "subclass", -1);
+        			deviceProtocol = getAttribute(context, parser, null, "protocol", -1);
+        			manufacturerName = getAttribute(context, parser, null, "manufacturer-name", "");
+        			if (TextUtils.isEmpty(manufacturerName)) {
+        				// オリジナルの属性名が設定されていないときは末尾の"-name"がない場合をチェック
+        				manufacturerName = getAttribute(context, parser, null, "manufacture", "");
+					}
+        			productName = getAttribute(context, parser, null, "product-name", "");
+        			if (TextUtils.isEmpty(productName)) {
+						// オリジナルの属性名が設定されていないときは末尾の"-name"がない場合をチェック
+        				productName = getAttribute(context, parser, null, "product", "");
+					}
+        			serialNumber = getAttribute(context, parser, null, "serial-number", "");
+        			if (TextUtils.isEmpty(serialNumber)) {
+						// オリジナルの属性名が設定されていないときは末尾の"-number"がない場合をチェック
+            			serialNumber = getAttribute(context, parser, null, "serial", "");
+					}
+					// ここから下はオリジナルには無い追加の設定
+					exclude = getAttribute(context, parser, null, "exclude", false);
+					// API>=28でclass, sub class, protocolが0になってしまうのでinterface class, interface sub class, interface protocolでチェックできるように定義を追加
+					if (!TextUtils.isEmpty(parser.getAttributeValue(null, "interfaceClass"))) {
+						intfClass = getAttribute(context, parser, null, "interfaceClass", new int[0]);
+						if ((intfClass != null) && (intfClass.length == 0)) {
+							intfClass = null;
+						}
+					}
+					if (!TextUtils.isEmpty(parser.getAttributeValue(null, "interfaceSubClass"))) {
+						intfSubClass = getAttribute(context, parser, null, "interfaceSubClass", new int[0]);
+						if ((intfSubClass != null) && (intfSubClass.length == 0)) {
+							intfSubClass = null;
+						}
+					}
+					if (!TextUtils.isEmpty(parser.getAttributeValue(null, "interfaceProtocol"))) {
+						intfProtocol = getAttribute(context, parser, null, "interfaceProtocol", new int[0]);
+						if ((intfProtocol != null) && (intfProtocol.length == 0)) {
+							intfProtocol = null;
+						}
+					}
+        		} else if (eventType == XmlPullParser.END_TAG) {
+        			if (hasValue) {
+
+	        			return new DeviceFilter(vendorId, productId,
+	        				deviceClass, deviceSubclass, deviceProtocol,
+	        				manufacturerName, productName, serialNumber,
+	        				intfClass, intfSubClass, intfProtocol,
+	        				exclude);
+        			}
+        		}
+        	}
+        	eventType = parser.next();
+        }
+        return null;
+	}
+
+//--------------------------------------------------------------------------------
 	// USB Vendor ID (or -1 for unspecified)
 	public final int mVendorId;
 	// USB Product ID (or -1 for unspecified)
@@ -65,22 +190,25 @@ public final class DeviceFilter implements Parcelable {
 	public final int mClass;
 	// USB device or interface subclass (or -1 for unspecified)
 	public final int mSubclass;
-	// USB interface class (or -1 for unspecified)
-	@Nullable
-	public final int[] mIntfClass;
-	// USB interface subclass (or -1 for unspecified)
-	@Nullable
-	public final int[] mIntfSubClass;
-	@Nullable
-	public final int[] mIntfProtocol;
 	// USB device protocol (or -1 for unspecified)
 	public final int mProtocol;
 	// USB device manufacturer name string (or null for unspecified)
+	@Nullable
 	public final String mManufacturerName;
 	// USB device product name string (or null for unspecified)
+	@Nullable
 	public final String mProductName;
 	// USB device serial number string (or null for unspecified)
+	@Nullable
 	public final String mSerialNumber;
+	// USB interface class (or -1 for unspecified)
+	@NonNull
+	public final int[] mIntfClass;
+	// USB interface subclass (or -1 for unspecified)
+	@NonNull
+	public final int[] mIntfSubClass;
+	@NonNull
+	public final int[] mIntfProtocol;
 	// set true if specific device(s) should exclude
 	public final boolean isExclude;
 
@@ -107,18 +235,16 @@ public final class DeviceFilter implements Parcelable {
 		mClass = clazz;
 		mSubclass = subclass;
 		mProtocol = protocol;
-		mIntfClass = null;
-		mIntfSubClass = null;
-		mIntfProtocol = null;
+		mIntfClass = intfClass != null ? intfClass : new int[0];
+		mIntfSubClass = intfSubClass != null ? intfSubClass : new int[0];
+		mIntfProtocol = intfProtocol != null ? intfProtocol : new int[0];
 		mManufacturerName = TextUtils.isEmpty(manufacturer) ? null : manufacturer;
 		mProductName = TextUtils.isEmpty(product) ? null : product;
 		mSerialNumber = TextUtils.isEmpty(serialNum) ? null : serialNum;
 		this.isExclude = isExclude;
-/*		Log.i(TAG, String.format("vendorId=0x%04x,productId=0x%04x,class=0x%02x,subclass=0x%02x,protocol=0x%02x",
-			mVendorId, mProductId, mClass, mSubclass, mProtocol)); */
 	}
 
-	public DeviceFilter(final UsbDevice device) {
+	public DeviceFilter(@NonNull final UsbDevice device) {
 		this(device, false);
 	}
 
@@ -129,27 +255,16 @@ public final class DeviceFilter implements Parcelable {
 		mClass = device.getDeviceClass();
 		mSubclass = device.getDeviceSubclass();
 		mProtocol = device.getDeviceProtocol();
-		if ((mClass == 0) && (mSubclass == 0) && (mProtocol == 0)) {
-			final int count = device.getInterfaceCount();
-			if (count > 0) {
-				mIntfClass = new int[count];
-				mIntfSubClass = new int[count];
-				mIntfProtocol = new int[count];
-				for (int i = 0; i < count; i++) {
-					final UsbInterface intf = device.getInterface(i);
-					mIntfClass[i] = intf.getInterfaceClass();
-					mIntfSubClass[i] = intf.getInterfaceSubclass();
-					mIntfProtocol[i] = intf.getInterfaceProtocol();
-				}
-			} else {
-				mIntfClass = null;
-				mIntfSubClass = null;
-				mIntfProtocol = null;
-			}
-		} else {
-			mIntfClass = null;
-			mIntfSubClass = null;
-			mIntfProtocol = null;
+		// getInterfaceCountは内部配列のlengthを返すので負にはならないはずだけど年のために下限を0にする
+		final int count = Math.max(device.getInterfaceCount(), 0);
+		mIntfClass = new int[count];
+		mIntfSubClass = new int[count];
+		mIntfProtocol = new int[count];
+		for (int i = 0; i < count; i++) {
+			final UsbInterface intf = device.getInterface(i);
+			mIntfClass[i] = intf.getInterfaceClass();
+			mIntfSubClass[i] = intf.getInterfaceSubclass();
+			mIntfProtocol[i] = intf.getInterfaceProtocol();
 		}
 		if (BuildCheck.isLollipop()) {
 			mManufacturerName = device.getManufacturerName();
@@ -161,138 +276,21 @@ public final class DeviceFilter implements Parcelable {
 			mSerialNumber = null;
 		}
 		this.isExclude = isExclude;
-/*		Log.i(TAG, String.format("vendorId=0x%04x,productId=0x%04x,class=0x%02x,subclass=0x%02x,protocol=0x%02x",
-			mVendorId, mProductId, mClass, mSubclass, mProtocol)); */
 	}
 
-	protected DeviceFilter(final Parcel in) {
+	protected DeviceFilter(@NonNull final Parcel in) {
 		mVendorId = in.readInt();
 		mProductId = in.readInt();
 		mClass = in.readInt();
 		mSubclass = in.readInt();
-		mIntfClass = in.createIntArray();
-		mIntfSubClass = in.createIntArray();
-		mIntfProtocol = in.createIntArray();
 		mProtocol = in.readInt();
 		mManufacturerName = in.readString();
 		mProductName = in.readString();
 		mSerialNumber = in.readString();
+		mIntfClass = in.createIntArray();
+		mIntfSubClass = in.createIntArray();
+		mIntfProtocol = in.createIntArray();
 		isExclude = in.readByte() != 0;
-	}
-
-	/**
-	 * 指定したxmlリソースからDeviceFilterリストを生成する
-	 * @param context
-	 * @param deviceFilterXmlId
-	 * @return
-	 */
-	public static List<DeviceFilter> getDeviceFilters(@NonNull final Context context,
-													  @XmlRes final int deviceFilterXmlId) {
-
-		final XmlPullParser parser = context.getResources().getXml(deviceFilterXmlId);
-		final List<DeviceFilter> deviceFilters = new ArrayList<DeviceFilter>();
-		try {
-			int eventType = parser.getEventType();
-			while (eventType != XmlPullParser.END_DOCUMENT) {
-	            if (eventType == XmlPullParser.START_TAG) {
-					final DeviceFilter deviceFilter = readEntryOne(context, parser);
-					if (deviceFilter != null) {
-						deviceFilters.add(deviceFilter);
-					}
-	            }
-				eventType = parser.next();
-			}
-		} catch (final XmlPullParserException e) {
-			Log.d(TAG, "XmlPullParserException", e);
-		} catch (final IOException e) {
-			Log.d(TAG, "IOException", e);
-		}
-
-		return Collections.unmodifiableList(deviceFilters);
-	}
-
-	public static DeviceFilter readEntryOne(
-		@NonNull final Context context, @NonNull final XmlPullParser parser)
-			throws XmlPullParserException, IOException {
-
-		int vendorId = -1;
-		int productId = -1;
-		int deviceClass = -1;
-		int deviceSubclass = -1;
-		int deviceProtocol = -1;
-		boolean exclude = false;
-		String manufacturerName = null;
-		String productName = null;
-		String serialNumber = null;
-		int[] intfClass = null, intfSubClass = null, intfProtocol = null;
-		boolean hasValue = false;
-
-		String tag;
-        int eventType = parser.getEventType();
-        while (eventType != XmlPullParser.END_DOCUMENT) {
-        	tag = parser.getName();
-        	if (!TextUtils.isEmpty(tag) && (tag.equalsIgnoreCase("usb-device"))) {
-        		if (eventType == XmlPullParser.START_TAG) {
-        			hasValue = true;
-					vendorId = getAttribute(context, parser, null, "vendor-id", -1);
-        			if (vendorId == -1) {
-        				vendorId = getAttribute(context, parser, null, "vendorId", -1);
-        			}
-					if (vendorId == -1) {
-         			vendorId = getAttribute(context, parser, null, "venderId", -1);
-}
-    				productId = getAttribute(context, parser, null, "product-id", -1);
-        			if (productId == -1) {
-            			productId = getAttribute(context, parser, null, "productId", -1);
-					}
-        			deviceClass = getAttribute(context, parser, null, "class", -1);
-        			deviceSubclass = getAttribute(context, parser, null, "subclass", -1);
-        			deviceProtocol = getAttribute(context, parser, null, "protocol", -1);
-        			manufacturerName = getAttribute(context, parser, null, "manufacturer-name", "");
-        			if (TextUtils.isEmpty(manufacturerName)) {
-        				manufacturerName = getAttribute(context, parser, null, "manufacture", "");
-					}
-        			productName = getAttribute(context, parser, null, "product-name", "");
-        			if (TextUtils.isEmpty(productName)) {
-        				productName = getAttribute(context, parser, null, "product", "");
-					}
-        			serialNumber = getAttribute(context, parser, null, "serial-number", "");
-        			if (TextUtils.isEmpty(serialNumber)) {
-            			serialNumber = getAttribute(context, parser, null, "serial", "");
-					}
-					exclude = getAttribute(context, parser, null, "exclude", false);
-					if (!TextUtils.isEmpty(parser.getAttributeValue(null, "interfaceClass"))) {
-						intfClass = getAttribute(context, parser, null, "interfaceClass", new int[0]);
-						if ((intfClass != null) && (intfClass.length == 0)) {
-							intfClass = null;
-						}
-					}
-					if (!TextUtils.isEmpty(parser.getAttributeValue(null, "interfaceSubClass"))) {
-						intfSubClass = getAttribute(context, parser, null, "interfaceSubClass", new int[0]);
-						if ((intfSubClass != null) && (intfSubClass.length == 0)) {
-							intfSubClass = null;
-						}
-					}
-					if (!TextUtils.isEmpty(parser.getAttributeValue(null, "interfaceProtocol"))) {
-						intfProtocol = getAttribute(context, parser, null, "interfaceProtocol", new int[0]);
-						if ((intfProtocol != null) && (intfProtocol.length == 0)) {
-							intfProtocol = null;
-						}
-					}
-        		} else if (eventType == XmlPullParser.END_TAG) {
-        			if (hasValue) {
-        				
-	        			return new DeviceFilter(vendorId, productId,
-	        				deviceClass, deviceSubclass, deviceProtocol,
-	        				manufacturerName, productName, serialNumber,
-	        				intfClass, intfSubClass, intfProtocol,
-	        				exclude);
-        			}
-        		}
-        	}
-        	eventType = parser.next();
-        }
-        return null;
 	}
 
 /*	public void write(XmlSerializer serializer) throws IOException {
@@ -328,90 +326,8 @@ public final class DeviceFilter implements Parcelable {
 	} */
 
 	/**
-	 * 指定したクラス・サブクラス・プロトコルがこのDeviceFilterとマッチするかどうかを返す
-	 * mExcludeフラグは別途#isExcludeか自前でチェックすること
-	 * @param clazz
-	 * @param subclass
-	 * @param protocol
-	 * @return
-	 */
-	private boolean matches(final int clazz, final int subclass, final int protocol) {
-		return ((mClass == -1 || clazz == mClass)
-			&& (mSubclass == -1 || subclass == mSubclass)
-			&& (mProtocol == -1 || protocol == mProtocol));
-	}
-
-	private boolean matchesIntfClass(final int clazz) {
-		if ((mIntfClass != null) && (mIntfClass.length > 0)) {
-			for (int intfClass: mIntfClass) {
-				if (intfClass == clazz) {
-					return true;
-				}
-			}
-			return false;
-		} else {
-			return true;
-		}
-	}
-
-	private boolean matchesIntfSubClass(final int subClazz) {
-		if ((mIntfSubClass != null) && (mIntfSubClass.length > 0)) {
-			for (int value: mIntfSubClass) {
-				if (value == subClazz) {
-					return true;
-				}
-			}
-			return false;
-		} else {
-			return true;
-		}
-	}
-
-	private boolean matchesIntfProtocol(final int protocol) {
-		if ((mIntfProtocol != null) && (mIntfProtocol.length > 0)) {
-			for (int value: mIntfProtocol) {
-				if (value == protocol) {
-					return true;
-				}
-			}
-			return false;
-		} else {
-			return true;
-		}
-	}
-
-	private boolean interfaceMatches(final int clazz, final int subclass, final int protocol) {
-		return matchesIntfClass(clazz)
-			&& matchesIntfSubClass(subclass)
-			&& matchesIntfProtocol(protocol);
-	}
-
-	private boolean interfaceMatches(@NonNull final UsbDevice device) {
-		// if device doesn't match, check the interfaces
-		final int count = device.getInterfaceCount();
-		for (int i = 0; i < count; i++) {
-			final UsbInterface intf = device.getInterface(i);
-			if (matches(
-				intf.getInterfaceClass(),
-				intf.getInterfaceSubclass(),
-				intf.getInterfaceProtocol())) {
-
-				return true;
-			}
-			if (interfaceMatches(
-				intf.getInterfaceClass(),
-				intf.getInterfaceSubclass(),
-				intf.getInterfaceProtocol())) {
-
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * 指定したUsbDeviceがこのDeviceFilterにマッチするかどうかを返す
-	 * mExcludeフラグは別途#isExcludeか自前でチェックすること
+	 * isExcludeフラグは別途#isExcludeか自前でチェックすること
 	 * @param device
 	 * @return
 	 */
@@ -422,21 +338,6 @@ public final class DeviceFilter implements Parcelable {
 		if (mProductId != -1 && device.getProductId() != mProductId) {
 			return false;
 		}
-/*		if (mManufacturerName != null && device.getManufacturerName() == null)
-			return false;
-		if (mProductName != null && device.getProductName() == null)
-			return false;
-		if (mSerialNumber != null && device.getSerialNumber() == null)
-			return false;
-		if (mManufacturerName != null && device.getManufacturerName() != null
-				&& !mManufacturerName.equals(device.getManufacturerName()))
-			return false;
-		if (mProductName != null && device.getProductName() != null
-				&& !mProductName.equals(device.getProductName()))
-			return false;
-		if (mSerialNumber != null && device.getSerialNumber() != null
-				&& !mSerialNumber.equals(device.getSerialNumber()))
-			return false; */
 
 		// check device class/subclass/protocol
 		if (matches(
@@ -447,7 +348,40 @@ public final class DeviceFilter implements Parcelable {
 			return true;
 		}
 
+		// check device interface class/interface subclass/interface protocol
 		return interfaceMatches(device);
+	}
+
+	/**
+	 * 指定したUsbDeviceInfoがこのDeviceFilterにマッチするかどうかを返す
+	 * isExcludeフラグは別途#isExcludeか自前でチェックすること
+	 * @param info
+	 * @return
+	 */
+	public boolean matches(
+		@Nullable final UsbDeviceInfo info) {
+
+		if ((info == null) || (info.device == null)) {
+			return false;
+		}
+
+		if ((mManufacturerName != null) && (info.manufacturer != null)
+				&& !mManufacturerName.equals(info.manufacturer)) {
+			// マニファクチャ名が指定されていてデバイスにもマニファクチャ名が指定されているが一致しない
+			return false;
+		}
+		if ((mProductName != null) && (info.product != null)
+				&& !mProductName.equals(info.product)) {
+			// プロダクト名が指定されていてデバイスにもプロダクト名が指定されているが一致しない
+			return false;
+		}
+		if ((mSerialNumber != null) && (info.serial != null)
+				&& !mSerialNumber.equals(info.serial)) {
+			// シリアル名が指定されていてデバイスにもシリアル名が指定されているが一致しない
+			return false;
+		}
+
+		return matches(info.device);
 	}
 
 	/**
@@ -531,16 +465,23 @@ public final class DeviceFilter implements Parcelable {
 				| (mSubclass << 8) | mProtocol));
 	}
 
+	@NonNull
 	@Override
 	public String toString() {
-		return "DeviceFilter[mVendorId=" + mVendorId + ",mProductId="
-			+ mProductId + ",mClass=" + mClass + ",mSubclass=" + mSubclass
-			+ ",mProtocol=" + mProtocol
-			+ ",mManufacturerName=" + mManufacturerName
-			+ ",mProductName=" + mProductName
-			+ ",mSerialNumber=" + mSerialNumber
-			+ ",isExclude=" + isExclude
-			+ "]";
+		return "DeviceFilter{" +
+			"mVendorId=" + mVendorId +
+			", mProductId=" + mProductId +
+			", mClass=" + mClass +
+			", mSubclass=" + mSubclass +
+			", mProtocol=" + mProtocol +
+			", mManufacturerName='" + mManufacturerName + '\'' +
+			", mProductName='" + mProductName + '\'' +
+			", mSerialNumber='" + mSerialNumber + '\'' +
+			", mIntfClass=" + Arrays.toString(mIntfClass) +
+			", mIntfSubClass=" + Arrays.toString(mIntfSubClass) +
+			", mIntfProtocol=" + Arrays.toString(mIntfProtocol) +
+			", isExclude=" + isExclude +
+			'}';
 	}
 
 	@Override
@@ -554,17 +495,131 @@ public final class DeviceFilter implements Parcelable {
 		dest.writeInt(mProductId);
 		dest.writeInt(mClass);
 		dest.writeInt(mSubclass);
-		dest.writeIntArray(mIntfClass);
-		dest.writeIntArray(mIntfSubClass);
-		dest.writeIntArray(mIntfProtocol);
 		dest.writeInt(mProtocol);
 		dest.writeString(mManufacturerName);
 		dest.writeString(mProductName);
 		dest.writeString(mSerialNumber);
+		dest.writeIntArray(mIntfClass);
+		dest.writeIntArray(mIntfSubClass);
+		dest.writeIntArray(mIntfProtocol);
 		dest.writeByte((byte) (isExclude ? 1 : 0));
 	}
 
-	public static final Creator<DeviceFilter> CREATOR = new Creator<DeviceFilter>() {
+//--------------------------------------------------------------------------------
+	/**
+	 * 指定したクラス・サブクラス・プロトコルがこのDeviceFilterとマッチするかどうかを返す
+	 * mExcludeフラグは別途#isExcludeか自前でチェックすること
+	 * @param clazz
+	 * @param subclass
+	 * @param protocol
+	 * @return
+	 */
+	private boolean matches(final int clazz, final int subclass, final int protocol) {
+		return ((mClass == -1 || clazz == mClass)
+			&& (mSubclass == -1 || subclass == mSubclass)
+			&& (mProtocol == -1 || protocol == mProtocol));
+	}
+
+	/**
+	 * インターフェースクラスに一致するものがあるかどうか
+	 * フィルター用インターフェースクラス配列の長さが0なら常にtrue
+	 * @param clazz
+	 * @return true: 一致したものがある
+	 */
+	private boolean matchesIntfClass(final int clazz) {
+		if (mIntfClass.length > 0) {
+			for (int intfClass: mIntfClass) {
+				if (intfClass == clazz) {
+					return true;
+				}
+			}
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	/**
+	 * インターフェースサブクラスに一致するものがあるかどうか
+	 * フィルター用インターフェースサブクラス配列の長さが0なら常にtrue
+	 * @param subClazz
+	 * @return true: 一致したものがある
+	 */
+	private boolean matchesIntfSubClass(final int subClazz) {
+		if (mIntfSubClass.length > 0) {
+			for (int value: mIntfSubClass) {
+				if (value == subClazz) {
+					return true;
+				}
+			}
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	/**
+	 * インターフェースプロトコルに一致するものがあるかどうか
+	 * フィルター用インターフェースプロトコル配列の長さが0なら常にtrue
+	 * @param protocol
+	 * @return true: 一致したものがある
+	 */
+	private boolean matchesIntfProtocol(final int protocol) {
+		if (mIntfProtocol.length > 0) {
+			for (int value: mIntfProtocol) {
+				if (value == protocol) {
+					return true;
+				}
+			}
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	/**
+	 * インターフェース専用のフィルタが定義されてあって一致する場合true
+	 * @param clazz
+	 * @param subclass
+	 * @param protocol
+	 * @return
+	 */
+	private boolean interfaceMatches(final int clazz, final int subclass, final int protocol) {
+		return (mIntfClass.length > 0)
+			&& (mIntfSubClass.length > 0)
+			&& (mIntfProtocol.length > 0)
+			&& matchesIntfClass(clazz)
+			&& matchesIntfSubClass(subclass)
+			&& matchesIntfProtocol(protocol);
+	}
+
+	private boolean interfaceMatches(@NonNull final UsbDevice device) {
+		// if device doesn't match, check the interfaces
+		final int count = device.getInterfaceCount();
+		for (int i = 0; i < count; i++) {
+			final UsbInterface intf = device.getInterface(i);
+			if (matches(
+				intf.getInterfaceClass(),
+				intf.getInterfaceSubclass(),
+				intf.getInterfaceProtocol())) {
+
+				return true;
+			}
+			if (interfaceMatches(
+				intf.getInterfaceClass(),
+				intf.getInterfaceSubclass(),
+				intf.getInterfaceProtocol())) {
+
+				return true;
+			}
+		}
+		return false;
+	}
+
+//--------------------------------------------------------------------------------
+	public static final Creator<DeviceFilter> CREATOR
+		= new Creator<DeviceFilter>() {
+
 		@Override
 		public DeviceFilter createFromParcel(Parcel in) {
 			return new DeviceFilter(in);

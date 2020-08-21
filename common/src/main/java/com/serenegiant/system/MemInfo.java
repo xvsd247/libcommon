@@ -3,7 +3,7 @@ package com.serenegiant.system;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.os.Debug;
 import android.text.TextUtils;
-
-import com.serenegiant.system.BuildCheck;
 
 public class MemInfo {
 
@@ -45,7 +42,8 @@ public class MemInfo {
 		try {
 			try {
 				final ActivityManager.MemoryInfo mem_info = new ActivityManager.MemoryInfo();
-				final ActivityManager am = ((ActivityManager)contex.getSystemService(Activity.ACTIVITY_SERVICE));
+				final ActivityManager am
+					= ContextUtils.requireSystemService(contex, ActivityManager.class);
 				am.getMemoryInfo(mem_info);
 				final JSONObject am_info = new JSONObject();
 				am_info.put("availMem", mem_info.availMem);

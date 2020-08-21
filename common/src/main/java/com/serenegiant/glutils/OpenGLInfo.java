@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,10 +41,12 @@ public class OpenGLInfo {
 	public static JSONObject get() throws JSONException {
 		JSONObject result = new JSONObject();
 		try {
+			// FIXME GLContextに変える
 	    	final EGLBase egl = EGLBase.createFrom(3, null, false, 0, false);
 	    	final EGLBase.IEglSurface dummy = egl.createOffscreen(1, 1);
 	    	try {
 		    	final IntBuffer val = IntBuffer.allocate(2);
+		    	// GLコンテキストの情報を取得
 		    	JSONObject glinfo = new JSONObject();
 		    	try {
 		    		glinfo.put("GL_VENDOR", GLES20.glGetString(GLES20.GL_VENDOR));
@@ -133,6 +135,7 @@ public class OpenGLInfo {
 		    		glinfo.put("GL_EXTENSIONS", e.getMessage());
 		    	}
 		        result.put("GL_INFO", glinfo);
+		        // EGLの情報取得
 		    	JSONObject eglinfo = new JSONObject();
 		    	try {
 		    		eglinfo.put("EGL_VENDOR", egl.queryString(EGL10.EGL_VENDOR));

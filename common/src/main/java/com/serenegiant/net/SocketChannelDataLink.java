@@ -3,7 +3,7 @@ package com.serenegiant.net;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -260,7 +260,7 @@ public class SocketChannelDataLink extends AbstractChannelDataLink {
 		@SuppressLint("NewApi")
 		private synchronized void init() throws IOException {
 			if (DEBUG) Log.v(TAG, "ServerTask#init:");
-			final String addr = NetworkHelper.getLocalIPv4Address();
+			final String addr = NetworkUtils.getLocalIPv4Address();
 			final SocketAddress address = new InetSocketAddress(addr, mPort);
 			mServerChannel = ServerSocketChannel.open();
 			if (BuildCheck.isNougat()) {

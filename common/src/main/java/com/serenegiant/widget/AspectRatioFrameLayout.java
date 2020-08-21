@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,28 +24,60 @@ import android.util.AttributeSet;
 import android.widget.FrameLayout;
 
 import com.serenegiant.common.R;
+import com.serenegiant.view.MeasureSpecDelegater;
 
 /**
  * Created by saki on 2016/12/03.
- *
+ * 指定したアスペクト比に合わせて外形サイズを変更させるFrameLayout
  */
-public class AspectRatioFrameLayout extends FrameLayout implements IAspectRatioView {
+public class AspectRatioFrameLayout extends FrameLayout implements IScaledView {
 
+	@ScaleMode
+	private int mScaleMode = SCALE_MODE_KEEP_ASPECT;
+	/**
+	 * 表示内容のアスペクト比
+	 * 0以下なら無視される
+	 */
 	private double mRequestedAspect = -1.0;		// initially use default window size
+	/**
+	 * スケールモードがキープアスペクトの場合にViewのサイズをアスペクト比に合わせて変更するかどうか
+	 */
+	private boolean mNeedResizeToKeepAspect;
 
+	/**
+	 * コンストラクタ
+	 * @param context
+	 */
 	public AspectRatioFrameLayout(final Context context) {
 		this(context, null, 0);
 	}
 
+	/**
+	 * コンストラクタ
+	 * @param context
+	 * @param attrs
+	 */
 	public AspectRatioFrameLayout(final Context context, final AttributeSet attrs) {
 		super(context, attrs, 0);
 	}
 
+	/**
+	 * コンストラクタ
+	 * @param context
+	 * @param attrs
+	 * @param defStyleAttr
+	 */
 	public AspectRatioFrameLayout(final Context context, final AttributeSet attrs, final int defStyleAttr) {
 		super(context, attrs, defStyleAttr);
-		final TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.IAspectRatioView, defStyleAttr, 0);
+		final TypedArray a = context.getTheme().obtainStyledAttributes(attrs,
+			R.styleable.IScaledView, defStyleAttr, 0);
 		try {
-			mRequestedAspect = a.getFloat(R.styleable.IAspectRatioView_aspect_ratio, -1.0f);
+			mRequestedAspect = a.getFloat(
+				R.styleable.IScaledView_aspect_ratio, -1.0f);
+			mScaleMode = a.getInt(
+				R.styleable.IScaledView_scale_mode, SCALE_MODE_KEEP_ASPECT);
+			mNeedResizeToKeepAspect = a.getBoolean(
+				R.styleable.IScaledView_resize_to_keep_aspect, true);
 		} finally {
 			a.recycle();
 		}
@@ -56,36 +88,25 @@ public class AspectRatioFrameLayout extends FrameLayout implements IAspectRatioV
 	 */
 	@Override
 	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-		// 要求されたアスペクト比が負の時(初期生成時)は何もしない
-		if (mRequestedAspect > 0) {
-			int initialWidth = MeasureSpec.getSize(widthMeasureSpec);
-			int initialHeight = MeasureSpec.getSize(heightMeasureSpec);
-			final int horizPadding = getPaddingLeft() + getPaddingRight();
-			final int vertPadding = getPaddingTop() + getPaddingBottom();
-			initialWidth -= horizPadding;
-			initialHeight -= vertPadding;
-
-			final double viewAspectRatio = (double)initialWidth / initialHeight;
-			final double aspectDiff = mRequestedAspect / viewAspectRatio - 1;
-
-			// 計算誤差が生じる可能性が有るので指定した値との差が小さければそのままにする
-			if (Math.abs(aspectDiff) > 0.01) {
-				if (aspectDiff > 0) {
-					// 幅基準で高さを決める
-					initialHeight = (int) (initialWidth / mRequestedAspect);
-				} else {
-					// 高さ基準で幅を決める
-					initialWidth = (int) (initialHeight * mRequestedAspect);
-				}
-				initialWidth += horizPadding;
-				initialHeight += vertPadding;
-				widthMeasureSpec = MeasureSpec.makeMeasureSpec(initialWidth, MeasureSpec.EXACTLY);
-				heightMeasureSpec = MeasureSpec.makeMeasureSpec(initialHeight, MeasureSpec.EXACTLY);
-			}
-		}
-
-	     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+		final MeasureSpecDelegater.MeasureSpec spec
+			= MeasureSpecDelegater.onMeasure(this,
+				mRequestedAspect, mScaleMode, mNeedResizeToKeepAspect,
+				widthMeasureSpec, heightMeasureSpec);
+		super.onMeasure(spec.widthMeasureSpec, spec.heightMeasureSpec);
  	}
+
+	@Override
+	public void setScaleMode(final int scaleMode) {
+		if (mScaleMode != scaleMode) {
+			mScaleMode = scaleMode;
+			requestLayout();
+		}
+	}
+
+	@Override
+	public int getScaleMode() {
+		return mScaleMode;
+	}
 
 	@Override
 	public void setAspectRatio(final double aspectRatio) {

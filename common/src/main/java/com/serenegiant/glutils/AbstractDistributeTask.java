@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,14 @@ package com.serenegiant.glutils;
 */
 
 import android.annotation.SuppressLint;
-import android.graphics.SurfaceTexture;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.os.Handler;
 import android.util.Log;
 import android.util.SparseArray;
-import android.view.Surface;
-import android.view.SurfaceHolder;
+import android.view.Choreographer;
 
+import com.serenegiant.utils.HandlerThreadHandler;
 import com.serenegiant.utils.ThreadUtils;
 
 import androidx.annotation.NonNull;
@@ -38,44 +38,91 @@ public abstract class AbstractDistributeTask {
 	private static final boolean DEBUG = false;	// set false on production
 	private static final String TAG = AbstractDistributeTask.class.getSimpleName();
 
-	protected static final int REQUEST_DRAW = 1;
-	protected static final int REQUEST_UPDATE_SIZE = 2;
-	protected static final int REQUEST_ADD_SURFACE = 3;
-	protected static final int REQUEST_REMOVE_SURFACE = 4;
-	protected static final int REQUEST_REMOVE_SURFACE_ALL = 12;
-	protected static final int REQUEST_RECREATE_MASTER_SURFACE = 5;
-	protected static final int REQUEST_MIRROR = 6;
-	protected static final int REQUEST_ROTATE = 7;
-	protected static final int REQUEST_CLEAR = 8;
-	protected static final int REQUEST_CLEAR_ALL = 9;
-	protected static final int REQUEST_SET_MVP = 10;
+	private static final int REQUEST_DRAW = 1;
+	private static final int REQUEST_UPDATE_SIZE = 2;
+	private static final int REQUEST_ADD_SURFACE = 3;
+	private static final int REQUEST_REMOVE_SURFACE = 4;
+	private static final int REQUEST_REMOVE_SURFACE_ALL = 12;
+	private static final int REQUEST_RECREATE_MASTER_SURFACE = 5;
+	private static final int REQUEST_MIRROR = 6;
+	private static final int REQUEST_ROTATE = 7;
+	private static final int REQUEST_CLEAR = 8;
+	private static final int REQUEST_CLEAR_ALL = 9;
+	private static final int REQUEST_SET_MVP = 10;
 
 	@NonNull
 	private final SparseArray<IRendererTarget>
 		mTargets = new SparseArray<>();
 	private int mVideoWidth, mVideoHeight;
+	/**
+	 * Choreographerによるvsync同期して映像更新するかどうか
+	 */
+	private final boolean mEnableVSync;
+	private final Handler mChoreographerHandler;
 	@IRendererCommon.MirrorMode
 	private int mMirror = MIRROR_NORMAL;
 	private int mRotation = 0;
 	private volatile boolean isFirstFrameRendered;
 	private volatile boolean mHasNewFrame;
-
+	private volatile boolean mReleased;
 	protected GLDrawer2D mDrawer;
 
-	protected AbstractDistributeTask(final int width, final int height) {
+	/**
+	 * コンストラクタ
+	 * @param width
+	 * @param height
+	 * @param enableVSync Choreographerを使ってvsync同期して映像更新するかどうか
+	 */
+	protected AbstractDistributeTask(final int width, final int height,
+		final boolean enableVSync) {
 
-		if (DEBUG) Log.v(TAG, "コンストラクタ:");
+		if (DEBUG) Log.v(TAG, "コンストラクタ:enableVSync=" + enableVSync);
 		mVideoWidth = width > 0 ? width : 640;
 		mVideoHeight = height > 0 ? height : 480;
+		mEnableVSync = enableVSync;
+		mReleased = false;
+		if (enableVSync) {
+			mChoreographerHandler = HandlerThreadHandler.createHandler(TAG);
+		} else {
+			mChoreographerHandler = null;
+		}
 	}
 
-	public void release() {
+	/**
+	 * 関連するリソースを破棄する
+	 */
+	public synchronized void release() {
 		if (DEBUG) Log.v(TAG, "release:");
+		if (!mReleased) {
+			mReleased = true;
+			if (mChoreographerHandler != null) {
+				try {
+					mChoreographerHandler.removeCallbacksAndMessages(null);
+					mChoreographerHandler.getLooper().quit();
+				} catch (final Exception e) {
+					if (DEBUG) Log.w(TAG, e);
+				}
+			}
+		}
 	}
 
+	/**
+	 * 描画要求する
+	 */
 	public void requestFrame() {
 		mHasNewFrame = isFirstFrameRendered = true;
-		offer(REQUEST_DRAW, 0, 0, null);
+		if (!mEnableVSync) {
+			// vsync同期しないときはここで描画要求する
+			// vsync動悸するときはChoreographer.FrameCallbackから描画要求する
+			offer(REQUEST_DRAW, 0, 0, null);
+		}
+	}
+
+	/**
+	 * 映像受け取り用のマスターサーフェースの再生成要求する
+	 */
+	public void requestRecreateMasterSurface() {
+		offer(REQUEST_RECREATE_MASTER_SURFACE);
 	}
 
 	/**
@@ -104,11 +151,7 @@ public abstract class AbstractDistributeTask {
 
 		if (DEBUG) Log.v(TAG, "addSurface:" + id);
 		checkFinished();
-		if (!((surface instanceof SurfaceTexture)
-			|| (surface instanceof Surface)
-			|| (surface instanceof SurfaceHolder)
-			|| (surface instanceof TextureWrapper))) {
-
+		if (!GLUtils.isSupportedSurface(surface)) {
 			throw new IllegalArgumentException(
 				"Surface should be one of Surface, SurfaceTexture or SurfaceHolder");
 		}
@@ -293,6 +336,20 @@ public abstract class AbstractDistributeTask {
 		return mVideoHeight;
 	}
 
+	/**
+	 * vsyncに同期して描画要求を行うためのChoreographer.FrameCallback実装
+	 */
+	private final Choreographer.FrameCallback mFrameCallback
+		= new Choreographer.FrameCallback() {
+		@Override
+		public void doFrame(final long frameTimeNanos) {
+			offer(REQUEST_DRAW, 0, 0, null);
+			if (!mReleased && isRunning()) {
+				Choreographer.getInstance().postFrameCallback(this);
+			}
+		}
+	};
+
 //--------------------------------------------------------------------------------
 // ワーカースレッド上での処理
 //--------------------------------------------------------------------------------
@@ -304,14 +361,22 @@ public abstract class AbstractDistributeTask {
 		if (DEBUG) Log.v(TAG, "handleOnStart:");
 		internalOnStart();
 		notifyParent(true);
+		if ((mEnableVSync) && (mChoreographerHandler != null)) {
+			mChoreographerHandler.post(new Runnable() {
+				@Override
+				public void run() {
+					Choreographer.getInstance().postFrameCallback(mFrameCallback);
+				}
+			});
+		}
 //		if (DEBUG) Log.v(TAG, "handleOnStart:finished");
 	}
 
 	@WorkerThread
 	protected void internalOnStart() {
 		if (DEBUG) Log.v(TAG, "internalOnStart:");
-		mDrawer = GLDrawer2D.create(isGLES3(), true);
-		handleReCreateMasterSurface();
+		mDrawer = GLDrawer2D.create(isOES3(), true);
+		handleReCreateInputSurface();
 	}
 
 	/**
@@ -320,6 +385,14 @@ public abstract class AbstractDistributeTask {
 	@WorkerThread
 	protected final void handleOnStop() {
 		if (DEBUG) Log.v(TAG, "onStop");
+		if ((mEnableVSync) && (mChoreographerHandler != null)) {
+			mChoreographerHandler.post(new Runnable() {
+				@Override
+				public void run() {
+					Choreographer.getInstance().removeFrameCallback(mFrameCallback);
+				}
+			});
+		}
 		notifyParent(false);
 		makeCurrent();
 		internalOnStop();
@@ -330,7 +403,7 @@ public abstract class AbstractDistributeTask {
 	@WorkerThread
 	protected void internalOnStop() {
 		if (DEBUG) Log.v(TAG, "internalOnStop:");
-		handleReleaseMasterSurface();
+		handleReleaseInputSurface();
 		handleRemoveAll();
 		if (mDrawer != null) {
 			mDrawer.release();
@@ -366,7 +439,7 @@ public abstract class AbstractDistributeTask {
 			handleRemoveAll();
 			break;
 		case REQUEST_RECREATE_MASTER_SURFACE:
-			handleReCreateMasterSurface();
+			handleReCreateInputSurface();
 			break;
 		case REQUEST_MIRROR:
 			handleMirror(arg1);
@@ -450,6 +523,7 @@ public abstract class AbstractDistributeTask {
 					try {
 						onDrawTarget(target, texId, texMatrix);
 					} catch (final Exception e) {
+						if (DEBUG) Log.w(TAG, e);
 						// removeSurfaceが呼ばれなかったかremoveSurfaceを呼ぶ前に破棄されてしまった
 						mTargets.removeAt(i);
 						target.release();
@@ -705,23 +779,25 @@ public abstract class AbstractDistributeTask {
 	public abstract void removeRequest(final int request);
 
 	public abstract EGLBase getEgl();
+	public abstract GLContext getGLContext();
 	public abstract EGLBase.IContext getContext();
 	public abstract void makeCurrent();
 	public abstract boolean isGLES3();
+	public abstract boolean isOES3();
 
 	public abstract boolean isMasterSurfaceValid();
 	public abstract int getTexId();
 	public abstract float[] getTexMatrix();
 	/**
-	 * マスターSurfaceを再生成する
+	 * 映像入力用Surfaceを再生成する
 	 */
 	@WorkerThread
-	protected abstract void handleReCreateMasterSurface();
+	protected abstract void handleReCreateInputSurface();
 	/**
-	 * マスターSurfaceを破棄する
+	 * 映像入力用Surfaceを破棄する
 	 */
 	@WorkerThread
-	protected abstract void handleReleaseMasterSurface();
+	protected abstract void handleReleaseInputSurface();
 	/**
 	 * テクスチャを更新
 	 */

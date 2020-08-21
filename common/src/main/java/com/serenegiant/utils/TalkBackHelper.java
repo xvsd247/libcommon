@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 
+import com.serenegiant.system.ContextUtils;
+
 public class TalkBackHelper {
 	private TalkBackHelper() {
 		// インスタンス化をエラーにするためにデフォルトコンストラクタをprivateに
@@ -37,8 +39,8 @@ public class TalkBackHelper {
 	 * @return
 	 */
 	public static boolean isEnabled(@NonNull final Context context) {
-		final AccessibilityManager manager = (AccessibilityManager) context
-			.getSystemService(Context.ACCESSIBILITY_SERVICE);
+		final AccessibilityManager manager
+			= ContextUtils.requireSystemService(context, AccessibilityManager.class);
 		return manager.isEnabled();
 	}
 
@@ -52,8 +54,8 @@ public class TalkBackHelper {
 		@Nullable final CharSequence text) throws IllegalStateException {
 
 		if (TextUtils.isEmpty(text) || (context == null)) return;
-		final AccessibilityManager manager = (AccessibilityManager) context
-			.getSystemService(Context.ACCESSIBILITY_SERVICE);
+		final AccessibilityManager manager
+			= ContextUtils.requireSystemService(context, AccessibilityManager.class);
 		if ((manager != null) && manager.isEnabled()) {
 			final AccessibilityEvent event = AccessibilityEvent.obtain();
 			if (event != null) {
@@ -80,8 +82,8 @@ public class TalkBackHelper {
 		@Nullable final CharSequence[] text) throws IllegalStateException {
 
 		if ((text == null) || (text.length == 0) || (context == null)) return;
-		final AccessibilityManager manager = (AccessibilityManager) context
-			.getSystemService(Context.ACCESSIBILITY_SERVICE);
+		final AccessibilityManager manager
+			= ContextUtils.requireSystemService(context, AccessibilityManager.class);
 		if ((manager != null) && manager.isEnabled()) {
 			final AccessibilityEvent event = AccessibilityEvent.obtain();
 			if (event != null) {

@@ -3,7 +3,7 @@ package com.serenegiant.graphics;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -34,14 +37,22 @@ import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.Shader;
+
+import androidx.annotation.DrawableRes;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.exifinterface.media.ExifInterface;
+
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
 
 import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -56,29 +67,48 @@ public final class BitmapHelper {
 		// インスタンス化をエラーにするためにデフォルトコンストラクタをprivateに
 	}
 
+//--------------------------------------------------------------------------------
 	/**
 	 * Bitmapをpng形式のbyte[]に変換して返す
 	 * @param bitmap
 	 * @return
 	 */
 	public static byte[] BitmapToByteArray(@NonNull final Bitmap bitmap) {
+		return BitmapToByteArray(bitmap, Bitmap.CompressFormat.PNG, 100);
+	}
+
+	/**
+	 * Bitmapをjpeg/png/webp形式のbyte[]に変換して返す
+	 * @param bitmap
+	 * @param format Bitmap.CompressFormat.JPEGまたはBitmap.CompressFormat.PNGまたはBitmap.CompressFormat.WEBP
+	 * @param quality JPEGのときのみ有効(0,100]
+	 * @return
+	 */
+	public static byte[] BitmapToByteArray(@NonNull final Bitmap bitmap,
+		final Bitmap.CompressFormat format, final int quality) {
+
 		final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 		byte[] bytes = null;
-        if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)) {
+        if (bitmap.compress(format, quality, byteArrayOutputStream)) {
             bytes = byteArrayOutputStream.toByteArray();
         }
         return bytes;
 	}
+
+//--------------------------------------------------------------------------------
+// byte配列を使うとき
 
 	/**
 	 * byte[]をBitmapに変換して返す
 	 * @param bytes
 	 * @return
 	 */
-	public static Bitmap asBitmap(final byte[] bytes) {
+	@Nullable
+	public static Bitmap asBitmap(@Nullable final byte[] bytes) {
 		Bitmap bitmap = null;
-		if (bytes != null)
+		if (bytes != null) {
 			bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+		}
 		return bitmap;
 	}
 
@@ -89,7 +119,11 @@ public final class BitmapHelper {
 	 * @param requestHeight
 	 * @return
 	 */
-	public static Bitmap asBitmap(final byte[] bytes, final int requestWidth, final int requestHeight) {
+	@Nullable
+	public static Bitmap asBitmap(
+		@Nullable final byte[] bytes,
+		final int requestWidth, final int requestHeight) {
+
 		Bitmap bitmap = null;
 		if (bytes != null) {
 			final BitmapFactory.Options options = new BitmapFactory.Options();
@@ -109,7 +143,11 @@ public final class BitmapHelper {
 	 * @param requestHeight
 	 * @return
 	 */
-	public static Bitmap asBitmapStrictSize(final byte[] bytes, final int requestWidth, final int requestHeight) {
+	@Nullable
+	public static Bitmap asBitmapStrictSize(
+		@Nullable final byte[] bytes,
+		final int requestWidth, final int requestHeight) {
+
 		Bitmap bitmap = null;
 		if (bytes != null) {
 			final BitmapFactory.Options options = new BitmapFactory.Options();
@@ -134,168 +172,252 @@ public final class BitmapHelper {
 		return bitmap;
 	}
 
+//--------------------------------------------------------------------------------
+// ファイルパス文字列を使うとき
 	/**
 	 * ファイルからビットマップを読み込んでBitmapとして返す
 	 * @param filePath
 	 * @return
 	 */
+	@Nullable
 	public static Bitmap asBitmap(final String filePath) {
 		Bitmap bitmap= null;
 		if (!TextUtils.isEmpty(filePath)) {
 			bitmap = BitmapFactory.decodeFile(filePath);
-		}
-		return bitmap;
-	}
-
-	/**
-	 * ファイルからビットマップを読み込んで指定した幅・高さに最も近い大きさのBitmapとして返す
-	 * @param filePath
-	 * @param requestWidth
-	 * @param requestHeight
-	 * @return
-	 */
-	public static Bitmap asBitmap(final String filePath, final int requestWidth, final int requestHeight) {
-		Bitmap bitmap = null;
-		if (!TextUtils.isEmpty(filePath)) {
-			final BitmapFactory.Options options = new BitmapFactory.Options();
-			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-			BitmapFactory.decodeFile(filePath, options);
-			options.inJustDecodeBounds = false;
-			options.inSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-			bitmap = BitmapFactory.decodeFile(filePath, options);
-		}
-		return bitmap;
-	}
-
-	/**
-	 * ファイルからビットマップデータを読み込んで指定した幅・高さのBitmapとして返す
-	 * @param filePath
-	 * @param requestWidth
-	 * @param requestHeight
-	 * @return
-	 */
-	public static Bitmap asBitmapStrictSize(final String filePath, final int requestWidth, final int requestHeight) {
-		Bitmap bitmap = null;
-		if (!TextUtils.isEmpty(filePath)) {
-			final BitmapFactory.Options options = new BitmapFactory.Options();
-			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-			BitmapFactory.decodeFile(filePath, options);
-			// 一番近いサイズになるSamplingSizeを計算
-			final int calcedSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-			// 2のベキ乗に丸める=MSBを取得
-			final int inSampleSize = 1 << BitsHelper.MSB(calcedSampleSize);
-			options.inSampleSize = inSampleSize;
-//			options.inMutable = (inSampleSize != calcedSampleSize);	// サイズ変更する時はmutableにする
-			options.inJustDecodeBounds = false;
-			bitmap = BitmapFactory.decodeFile(filePath, options);
-			if ((inSampleSize != calcedSampleSize)
-				|| (bitmap.getWidth() != requestWidth)
-				|| (bitmap.getHeight() != requestHeight)) {
-
-				final Bitmap newBitmap = scaleBitmap(bitmap, requestWidth, requestHeight);
-				bitmap.recycle();
-				bitmap = newBitmap;
-			}
-		}
-		return bitmap;
-	}
-
-	/**
-	 * ファイルからビットマップを読み込んでBitmapとして返す
-	 * @param fd
-	 * @return
-	 */
-	public static Bitmap asBitmap(final FileDescriptor fd) {
-		Bitmap bitmap= null;
-		if (fd != null && fd.valid()) {
-			bitmap = BitmapFactory.decodeFileDescriptor(fd);
-		}
-		return bitmap;
-	}
-
-	/**
-	 * ファイルからビットマップを読み込んで指定した幅・高さに最も近い大きさのBitmapとして返す
-	 * @param fd
-	 * @param requestWidth
-	 * @param requestHeight
-	 * @return
-	 */
-	public static Bitmap asBitmap(final FileDescriptor fd, final int requestWidth, final int requestHeight) {
-		Bitmap bitmap = null;
-		if (fd != null && fd.valid()) {
-			final BitmapFactory.Options options = new BitmapFactory.Options();
-			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-			BitmapFactory.decodeFileDescriptor(fd, null, options);
-			options.inJustDecodeBounds = false;
-			options.inSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-			bitmap = BitmapFactory.decodeFileDescriptor(fd, null, options);
-		}
-		return bitmap;
-	}
-
-	/**
-	 * ファイルからビットマップデータを読み込んで指定した幅・高さのBitmapとして返す
-	 * @param fd
-	 * @param requestWidth
-	 * @param requestHeight
-	 * @return
-	 */
-	public static Bitmap asBitmapStrictSize(final FileDescriptor fd, final int requestWidth, final int requestHeight) {
-		Bitmap bitmap = null;
-		if (fd != null && fd.valid()) {
-			final BitmapFactory.Options options = new BitmapFactory.Options();
-			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-			BitmapFactory.decodeFileDescriptor(fd, null, options);
-			// 一番近いサイズになるSamplingSizeを計算
-			final int calcedSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-			// 2のベキ乗に丸める=MSBを取得
-			final int inSampleSize = 1 << BitsHelper.MSB(calcedSampleSize);
-			options.inSampleSize = inSampleSize;
-//			options.inMutable = (inSampleSize != calcedSampleSize);	// サイズ変更する時はmutableにする
-			options.inJustDecodeBounds = false;
-			bitmap = BitmapFactory.decodeFileDescriptor(fd, null, options);
-			if ((inSampleSize != calcedSampleSize)
-				|| (bitmap.getWidth() != requestWidth)
-				|| (bitmap.getHeight() != requestHeight)) {
-
-				final Bitmap newBitmap = scaleBitmap(bitmap, requestWidth, requestHeight);
-				bitmap.recycle();
-				bitmap = newBitmap;
-			}
-		}
-		return bitmap;
-	}
-
-	/**
-	 * ファイルからビットマップを読み込んでBitmapとして返す
-	 * @param cr
-	 * @return
-	 * @throws FileNotFoundException
-	 */
-	public static Bitmap asBitmap(final ContentResolver cr, final Uri uri)
-		throws FileNotFoundException, IOException {
-
-		Bitmap bitmap= null;
-		if (uri != null) {
-			final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
-			if (pfd != null) {
-				bitmap = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor());
-				final int orientation = getOrientation(cr, uri);
-				if (orientation != 0) {
-					final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
-					bitmap.recycle();
-					bitmap = newBitmap;
-				}
-			}
-/*			final InputStream input = cr.openInputStream(uri);
-			bitmap = BitmapFactory.decodeStream(input);
-			input.close();
-			final int orientation = getOrientation(cr, uri);
+			final int orientation = getOrientation(filePath);
 			if (orientation != 0) {
 				final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
 				bitmap.recycle();
 				bitmap = newBitmap;
-			} */
+			}
+		}
+		return bitmap;
+	}
+
+	/**
+	 * ファイルからビットマップを読み込んで指定した幅・高さに最も近い大きさのBitmapとして返す
+	 * @param filePath
+	 * @param requestWidth
+	 * @param requestHeight
+	 * @return
+	 */
+	@Nullable
+	public static Bitmap asBitmap(
+		final String filePath,
+		final int requestWidth, final int requestHeight) {
+
+		Bitmap bitmap = null;
+		if (!TextUtils.isEmpty(filePath)) {
+			final BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
+			BitmapFactory.decodeFile(filePath, options);
+			options.inJustDecodeBounds = false;
+			options.inSampleSize = calcSampleSize(options, requestWidth, requestHeight);
+			bitmap = BitmapFactory.decodeFile(filePath, options);
+			final int orientation = getOrientation(filePath);
+			if (orientation != 0) {
+				final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
+				bitmap.recycle();
+				bitmap = newBitmap;
+			}
+		}
+		return bitmap;
+	}
+
+	/**
+	 * ファイルからビットマップデータを読み込んで指定した幅・高さのBitmapとして返す
+	 * @param filePath
+	 * @param requestWidth
+	 * @param requestHeight
+	 * @return
+	 */
+	@Nullable
+	public static Bitmap asBitmapStrictSize(
+		final String filePath,
+		final int requestWidth, final int requestHeight) {
+
+		Bitmap bitmap = null;
+		if (!TextUtils.isEmpty(filePath)) {
+			final BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
+			BitmapFactory.decodeFile(filePath, options);
+			// 一番近いサイズになるSamplingSizeを計算
+			final int calcedSampleSize = calcSampleSize(options, requestWidth, requestHeight);
+			// 2のベキ乗に丸める=MSBを取得
+			final int inSampleSize = 1 << BitsHelper.MSB(calcedSampleSize);
+			options.inSampleSize = inSampleSize;
+//			options.inMutable = (inSampleSize != calcedSampleSize);	// サイズ変更する時はmutableにする
+			options.inJustDecodeBounds = false;
+			bitmap = BitmapFactory.decodeFile(filePath, options);
+			final int orientation = getOrientation(filePath);
+			if ((inSampleSize != calcedSampleSize)
+				|| (orientation != 0)
+				|| (bitmap.getWidth() != requestWidth)
+				|| (bitmap.getHeight() != requestHeight)) {
+
+				final Bitmap newBitmap = scaleRotateBitmap(bitmap, requestWidth, requestHeight, orientation);
+				bitmap.recycle();
+				bitmap = newBitmap;
+			}
+		}
+		return bitmap;
+	}
+
+//--------------------------------------------------------------------------------
+// FileDescriptorを使う場合
+
+	/**
+	 * ファイルからビットマップを読み込んでBitmapとして返す
+	 * @param fd
+	 * @return
+	 */
+	@Nullable
+	public static Bitmap asBitmap(final FileDescriptor fd) {
+		Bitmap bitmap= null;
+		if (fd != null && fd.valid()) {
+			bitmap = BitmapFactory.decodeFileDescriptor(fd);
+			final int orientation = getOrientation(fd);
+			if (orientation != 0) {
+				final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
+				bitmap.recycle();
+				bitmap = newBitmap;
+			}
+		}
+		return bitmap;
+	}
+
+	/**
+	 * ファイルからビットマップを読み込んで指定した幅・高さに最も近い大きさのBitmapとして返す
+	 * @param fd
+	 * @param requestWidth
+	 * @param requestHeight
+	 * @return
+	 */
+	@Nullable
+	public static Bitmap asBitmap(
+		final FileDescriptor fd,
+		final int requestWidth, final int requestHeight) {
+
+		Bitmap bitmap = null;
+		if (fd != null && fd.valid()) {
+			final BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
+			BitmapFactory.decodeFileDescriptor(fd, null, options);
+			options.inJustDecodeBounds = false;
+			options.inSampleSize = calcSampleSize(options, requestWidth, requestHeight);
+			bitmap = BitmapFactory.decodeFileDescriptor(fd, null, options);
+			final int orientation = getOrientation(fd);
+			if (orientation != 0) {
+				final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
+				bitmap.recycle();
+				bitmap = newBitmap;
+			}
+		}
+		return bitmap;
+	}
+
+	/**
+	 * ファイルからビットマップデータを読み込んで指定した幅・高さのBitmapとして返す
+	 * @param fd
+	 * @param requestWidth
+	 * @param requestHeight
+	 * @return
+	 */
+	public static Bitmap asBitmapStrictSize(
+		final FileDescriptor fd,
+		final int requestWidth, final int requestHeight) {
+
+		Bitmap bitmap = null;
+		if (fd != null && fd.valid()) {
+			final BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
+			BitmapFactory.decodeFileDescriptor(fd, null, options);
+			// 一番近いサイズになるSamplingSizeを計算
+			final int calcedSampleSize = calcSampleSize(options, requestWidth, requestHeight);
+			// 2のベキ乗に丸める=MSBを取得
+			final int inSampleSize = 1 << BitsHelper.MSB(calcedSampleSize);
+			options.inSampleSize = inSampleSize;
+//			options.inMutable = (inSampleSize != calcedSampleSize);	// サイズ変更する時はmutableにする
+			options.inJustDecodeBounds = false;
+			bitmap = BitmapFactory.decodeFileDescriptor(fd, null, options);
+			final int orientation = getOrientation(fd);
+			if ((inSampleSize != calcedSampleSize)
+				|| (orientation != 0)
+				|| (bitmap.getWidth() != requestWidth)
+				|| (bitmap.getHeight() != requestHeight)) {
+
+				final Bitmap newBitmap = scaleRotateBitmap(bitmap, requestWidth, requestHeight, orientation);
+				bitmap.recycle();
+				bitmap = newBitmap;
+			}
+		}
+		return bitmap;
+	}
+
+//--------------------------------------------------------------------------------
+// ContentResolverを使うとき
+
+	/**
+	 * 指定したIDの静止画をContentResolverから読み込む
+	 * @param cr
+	 * @param id
+	 * @return
+	 * @throws IOException
+	 */
+	@Nullable
+	public static final Bitmap asBitmap(@NonNull final ContentResolver cr,
+		final long id) throws IOException {
+
+		Bitmap result = null;
+		final Uri uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+		final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
+		if (pfd != null) {
+			result = asBitmap(pfd.getFileDescriptor());
+		}
+		return result;
+	}
+
+	/**
+	 * 指定したIDの静止画をContentResolverから読み込む
+	 * @param cr
+	 * @param id
+	 * @param requestWidth
+	 * @param requestHeight
+	 * @return
+	 * @throws IOException
+	 */
+	@Nullable
+	public static final Bitmap asBitmap(@NonNull final ContentResolver cr,
+		final long id,
+		final int requestWidth, final int requestHeight)
+			throws IOException {
+
+		Bitmap result = null;
+		final Uri uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+		final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
+		if (pfd != null) {
+			result = asBitmap(pfd.getFileDescriptor(), requestWidth, requestHeight);
+		}
+		return result;
+	}
+
+
+	/**
+	 * ファイルからビットマップを読み込んでBitmapとして返す
+	 * @param cr
+	 * @return
+	 * @throws FileNotFoundException
+	 */
+	@Nullable
+	public static Bitmap asBitmap(@NonNull final ContentResolver cr, final Uri uri)
+		throws IOException {
+
+		Bitmap bitmap= null;
+		if (uri != null) {
+			final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
+			if (pfd != null) {
+				bitmap = asBitmap(pfd.getFileDescriptor());
+			}
 		}
 		return bitmap;
 	}
@@ -308,44 +430,17 @@ public final class BitmapHelper {
 	 * @return
 	 * @throws FileNotFoundException
 	 */
-	public static Bitmap asBitmap(final ContentResolver cr, final Uri uri, final int requestWidth, final int requestHeight)
-		throws FileNotFoundException, IOException {
+	@Nullable
+	public static Bitmap asBitmap(@NonNull final ContentResolver cr,
+		final Uri uri,
+		final int requestWidth, final int requestHeight) throws IOException {
 
 		Bitmap bitmap = null;
 		if (uri != null) {
 			final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
 			if (pfd != null) {
-				final BitmapFactory.Options options = new BitmapFactory.Options();
-				options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-				BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor(), null, options);
-				options.inJustDecodeBounds = false;
-				options.inSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-				bitmap = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor(), null, options);
-				final int orientation = getOrientation(cr, uri);
-				if (orientation != 0) {
-					final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
-					bitmap.recycle();
-					bitmap = newBitmap;
-				}
+				bitmap = asBitmap(pfd.getFileDescriptor(), requestWidth, requestHeight);
 			}
-/*			InputStream input = cr.openInputStream(uri);
-			if (input != null) {
-				final BitmapFactory.Options options = new BitmapFactory.Options();
-				options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-				BitmapFactory.decodeStream(input, null, options);
-				input.close(); input = null;
-				options.inJustDecodeBounds = false;
-				options.inSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-				input = cr.openInputStream(uri);
-				bitmap = BitmapFactory.decodeStream(input, null, options);
-				input.close();
-				final int orientation = getOrientation(cr, uri);
-				if (orientation != 0) {
-					final Bitmap newBitmap = rotateBitmap(bitmap, orientation);
-					bitmap.recycle();
-					bitmap = newBitmap;
-				}
-			} */
 		}
 //		if (DEBUG) Log.v(TAG, "asBitmap:" + bitmap);
 		return bitmap;
@@ -359,69 +454,31 @@ public final class BitmapHelper {
 	 * @return
 	 * @throws FileNotFoundException
 	 */
-	public static Bitmap asBitmapStrictSize(final ContentResolver cr, final Uri uri, final int requestWidth, final int requestHeight)
-		throws FileNotFoundException, IOException {
+	@Nullable
+	public static Bitmap asBitmapStrictSize(@NonNull final ContentResolver cr,
+		final Uri uri,
+		final int requestWidth, final int requestHeight) throws IOException {
 
 		Bitmap bitmap = null;
 		if (uri != null) {
 			final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
 			if (pfd != null) {
-				final BitmapFactory.Options options = new BitmapFactory.Options();
-				options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-				BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor(), null, options);
-				// 一番近いサイズになるSamplingSizeを計算
-				final int calcedSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-				// 2のベキ乗に丸める=MSBを取得
-				final int inSampleSize = 1 << BitsHelper.MSB(calcedSampleSize);
-				options.inSampleSize = inSampleSize;
-//				options.inMutable = (inSampleSize != calcedSampleSize);	// サイズ変更する時はmutableにする(API11以上)
-				options.inJustDecodeBounds = false;
-				bitmap = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor(), null, options);
-				final int orientation = getOrientation(cr, uri);
-				if ((inSampleSize != calcedSampleSize)
-						|| (orientation != 0)
-						|| (bitmap.getWidth() != requestWidth)
-						|| (bitmap.getHeight() != requestHeight)) {
-
-					final Bitmap newBitmap = scaleRotateBitmap(bitmap, requestWidth, requestHeight, orientation);
-					bitmap.recycle();
-					bitmap = newBitmap;
-				}
+				bitmap = asBitmapStrictSize(pfd.getFileDescriptor(), requestWidth, requestHeight);
 			}
-/*			InputStream input = cr.openInputStream(uri);
-			if (input != null) {
-				final BitmapFactory.Options options = new BitmapFactory.Options();
-				options.inJustDecodeBounds = true;	// Bitmapを生成せずにサイズ等の情報だけを取得する
-				BitmapFactory.decodeStream(input, null, options);
-				// 本当はmark/resetを使えばいいんだけどmarkのreadlimitに適当に十分大きい数字を入れるしか無いので一旦閉じて再度取得する
-				// FileDescriptorを使えばファイルのサイズが取れそうだけど・・・それならdecodeFileDescriptor使うほうが良さそう？
-				input.close(); input = null;
-				// 一番近いサイズになるSamplingSizeを計算
-				final int calcedSampleSize = calcSampleSize(options, requestWidth, requestHeight);
-				// 2のベキ乗に丸める=MSBを取得
-				final int inSampleSize = 1 << BitsHelper.MSB(calcedSampleSize);
-				options.inSampleSize = inSampleSize;
-//				options.inMutable = (inSampleSize != calcedSampleSize);	// サイズ変更する時はmutableにする(API11以上)
-				options.inJustDecodeBounds = false;
-				input = cr.openInputStream(uri);
-				bitmap = BitmapFactory.decodeStream(input, null, options);
-				input.close();
-				final int orientation = getOrientation(cr, uri);
-				if ((inSampleSize != calcedSampleSize) || (orientation != 0)) {
-					Bitmap newBitmap = scaleRotateBitmap(bitmap, requestWidth, requestHeight, orientation);
-					bitmap.recycle();
-					bitmap = newBitmap;
-				}
-			} */
 		}
 		return bitmap;
 	}
+
+//--------------------------------------------------------------------------------
+// InputStreamを使う場合
 
 	/**
 	 * ファイルからビットマップを読み込んでBitmapとして返す
 	 * @param in
 	 * @return
 	 */
+	@Deprecated
+	@Nullable
 	public static Bitmap asBitmap(final InputStream in) {
 		Bitmap bitmap = null;
 		if (in != null) {
@@ -439,6 +496,7 @@ public final class BitmapHelper {
 	 * @return
 	 */
 	@Deprecated
+	@Nullable
 	public static Bitmap asBitmap(final InputStream in, final int requestWidth, final int requestHeight) {
 		Bitmap bitmap = null;
 		if (in != null) {
@@ -462,6 +520,7 @@ public final class BitmapHelper {
 	 * @return
 	 */
 	@Deprecated
+	@Nullable
 	public static Bitmap asBitmapStrictSize(final InputStream in, final int requestWidth, final int requestHeight) {
 		Bitmap bitmap = null;
 		if (in != null) {
@@ -489,46 +548,59 @@ public final class BitmapHelper {
 		return bitmap;
 	}
 
+	/**
+	 * DrawableをBitmapへ変換する
+	 * @param drawable
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	@NonNull
+	public static Bitmap fromDrawable(
+		@NonNull final Drawable drawable,
+		final int width, final int height) {
 
-	public static int getOrientation(final ContentResolver cr, final Uri uri) {
-//		if (DEBUG) Log.v(TAG, "getOrientation:" + uri);
+		Bitmap result;
+		Drawable _drawable = drawable;
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+			_drawable = (DrawableCompat.wrap(_drawable)).mutate();
+		}
+		_drawable.setBounds(0, 0, width, height);
+		result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+		final Canvas canvas = new Canvas(result);
+		_drawable.draw(canvas);
+		return result;
+	}
 
-        final ExifInterface exifInterface;
-        try {
-            exifInterface = new ExifInterface(UriHelper.getAbsolutePath(cr, uri));
-        } catch (final Exception e) {	// IOException/IllegalArgumentException
-//        	if (DEBUG) Log.w(TAG, e);
-            return 0;
-        }
+	/**
+	 * 指定したDrawableリソースからビットマップとして画像を取得する
+	 * @param drawableRes
+	 * @return
+	 */
+	@NonNull
+	public static Bitmap fromDrawable(
+		@NonNull final Context context,
+		@DrawableRes final int drawableRes) {
 
-//		if (DEBUG) Log.v(TAG, "getOrientation:exifInterface=" + exifInterface);
-        final int exifR = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-        int orientation;
-        switch (exifR) {
-            case ExifInterface.ORIENTATION_ROTATE_90:
-                orientation = 90;
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_180:
-                orientation = 180;
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_270:
-                orientation = 270;
-                break;
-            default:
-                orientation = 0;
-                break;
-        }
-/*		// 元画像自体を回転させるのであればExif情報も変更しないとダメ
-		if (orientation != 0) {
-            exifInterface.setAttribute(ExifInterface.TAG_ORIENTATION, "0");
-        	try {
-				exifInterface.saveAttributes();
-			} catch (IOException e) {
+		Bitmap result = null;
+		if (drawableRes != 0) {
+			final Drawable drawable = ContextCompat.getDrawable(context, drawableRes);
+			if ((drawable.getIntrinsicWidth() <= 0) || (drawable.getIntrinsicHeight() <= 0)) {
+				// ColorDrawable等でサイズ指定されていないときは
+				// intrinsicWidth/intrinsicHeightが0なのでエラーにならないように
+				// 適当な値を入れておく
+				drawable.setBounds(0, 0, 72, 72);
 			}
-        } */
-//		if (DEBUG) Log.v(TAG, "getOrientation:orientation=" + orientation);
-        return orientation;
-    }
+			result = fromDrawable(drawable,
+				drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+		}
+		if (result == null) {
+			throw new IllegalArgumentException("failed to load from resource " + drawableRes);
+		}
+		return result;
+	}
+
+//--------------------------------------------------------------------------------
+// Bitmapの操作メソッド
 
 	/**
 	 * 指定したサイズになるように拡大縮小したBitmapを生成して返す(Bitmap#createScaledBitmapと一緒かな?)
@@ -537,7 +609,13 @@ public final class BitmapHelper {
 	 * @param requestHeight
 	 * @return
 	 */
-	public static Bitmap scaleBitmap(final Bitmap bitmap, final int requestWidth, final int requestHeight) {
+	@Nullable
+	public static Bitmap scaleBitmap(
+		@Nullable final Bitmap bitmap,
+		final int requestWidth, final int requestHeight) {
+
+		if (DEBUG) Log.v(TAG, String.format("scaleBitmap:(%dx%d)",
+			requestWidth, requestHeight));
 		Bitmap newBitmap = null;
 		if (bitmap != null) {
 			final int width = bitmap.getWidth();
@@ -546,7 +624,7 @@ public final class BitmapHelper {
 			matrix.postScale(width / (float)requestWidth, height / (float)requestHeight);
 			newBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
 		}
-//		if (DEBUG) Log.v(TAG, "scaleBitmap:bitmap=" + bitmap + " newBitmap=" + newBitmap);
+		if (DEBUG) Log.v(TAG, "scaleBitmap:bitmap=" + bitmap + " newBitmap=" + newBitmap);
 		return newBitmap;
 	}
 
@@ -556,7 +634,11 @@ public final class BitmapHelper {
 	 * @param rotation
 	 * @return
 	 */
-	public static Bitmap rotateBitmap(final Bitmap bitmap, final int rotation) {
+	@Nullable
+	public static Bitmap rotateBitmap(
+		@Nullable final Bitmap bitmap, final int rotation) {
+
+		if (DEBUG) Log.v(TAG, String.format("rotateBitmap:%d", rotation));
 		Bitmap newBitmap = null;
 		if (bitmap != null) {
 			final int width = bitmap.getWidth();
@@ -565,7 +647,7 @@ public final class BitmapHelper {
 			matrix.postRotate(rotation);
 			newBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
 		}
-//		if (DEBUG) Log.v(TAG, "rotateBitmap:bitmap=" + bitmap + " newBitmap=" + newBitmap);
+		if (DEBUG) Log.v(TAG, "rotateBitmap:bitmap=" + bitmap + " newBitmap=" + newBitmap);
 		return newBitmap;
 	}
 
@@ -577,7 +659,13 @@ public final class BitmapHelper {
 	 * @param rotation
 	 * @return
 	 */
-	public static Bitmap scaleRotateBitmap(final Bitmap bitmap, final int requestWidth, final int requestHeight, final int rotation) {
+	@Nullable
+	public static Bitmap scaleRotateBitmap(
+		@Nullable final Bitmap bitmap,
+		final int requestWidth, final int requestHeight, final int rotation) {
+
+		if (DEBUG) Log.v(TAG, String.format("scaleRotateBitmap:(%dx%d)/%d",
+			requestWidth, requestHeight, rotation));
 		Bitmap newBitmap = null;
 		if (bitmap != null) {
 			final int width = bitmap.getWidth();
@@ -587,7 +675,7 @@ public final class BitmapHelper {
 			matrix.postRotate(rotation);
 			newBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
 		}
-//		if (DEBUG) Log.v(TAG, "scaleBitmap:bitmap=" + bitmap + " newBitmap=" + newBitmap);
+		if (DEBUG) Log.v(TAG, "scaleBitmap:bitmap=" + bitmap + " newBitmap=" + newBitmap);
 		return newBitmap;
 	}
 
@@ -601,7 +689,11 @@ public final class BitmapHelper {
 	 * @param height
 	 * @return
 	 */
-	public static Bitmap extractBitmap(final Bitmap source, final int width, final int height) {
+	@Nullable
+	public static Bitmap extractBitmap(
+		@Nullable final Bitmap source,
+		final int width, final int height) {
+
 		Bitmap newBitmap = null;
 		if (source != null) {
 	        float scale;
@@ -621,10 +713,13 @@ public final class BitmapHelper {
     /**
      * Transform source Bitmap to targeted width and height.
      */
-    private static Bitmap transform(Matrix scaler,
-            final Bitmap source,
-            final int targetWidth, final int targetHeight,
-            final int options) {
+    @NonNull
+    private static Bitmap transform(
+    	Matrix scaler,
+		@NonNull final Bitmap source,
+		final int targetWidth, final int targetHeight,
+		final int options) {
+
         final boolean scaleUp = (options & OPTIONS_SCALE_UP) != 0;
         final boolean recycle = (options & OPTIONS_RECYCLE_INPUT) != 0;
 
@@ -718,29 +813,43 @@ public final class BitmapHelper {
 	/**
 	 * 指定したサイズよりも小さくならない最大のサブサンプリング数を取得
 	 * @param options
-	 * @param requestWidth
-	 * @param requestHeight
+	 * @param requestWidth　0以下でrequestHeightが指定されていればアスペクト比を保つ用にwidthを自動設定, requestHeightが設定されていなければ映像幅を使う
+	 * @param requestHeight 0以下でrequestWidthが指定されていればアスペクト比を保つ用にheightを自動設定, requestWidthが設定されていなければ映像高さを使う
 	 * @return
 	 */
-	public static int calcSampleSize(final BitmapFactory.Options options, final int requestWidth, final int requestHeight) {
+	public static int calcSampleSize(@NonNull final BitmapFactory.Options options,
+		final int requestWidth, final int requestHeight) {
+
 		final int imageWidth = options.outWidth;
 		final int imageHeight = options.outHeight;
-		int inSampleSize = 1;	// サブサンプリングサイズ
-		if ((imageHeight > requestHeight) || (imageWidth > requestWidth)) {
+		int reqWidth = requestWidth, reqHeight = requestHeight;
+		if (requestWidth <= 0) {
+			if (requestHeight > 0)
+				reqWidth = (int)(imageWidth * requestHeight / (float)imageHeight);
+			else
+				reqWidth = imageWidth;
+		}
+		if (requestHeight <= 0) {
+			if (requestWidth > 0)
+				reqHeight = (int)(imageHeight * requestWidth / (float)imageHeight);
+			else
+				reqHeight = imageHeight;
+		}
+		int inSampleSize = 1;
+		if ((imageHeight > reqHeight) || (imageWidth > reqWidth)) {
 			if (imageWidth > imageHeight) {
-				inSampleSize = (int)Math.floor(imageHeight / (float)requestHeight);
+				inSampleSize = Math.round(imageHeight / (float)reqHeight);	// Math.floor
 			} else {
-				inSampleSize = (int)Math.floor(imageWidth / (float)requestWidth);
+				inSampleSize = Math.round(imageWidth / (float)reqWidth);	// Math.floor
 			}
 		}
-/*		if (DEBUG) Log.v("BitmapHelper", String.format("calcSampleSize:image=(%d,%d),request=(%d,%d),inSampleSize=%d",
-				imageWidth, imageHeight, requestWidth, requestHeight, inSampleSize)); */
+		if (DEBUG) Log.v(TAG, String.format("calcSampleSize:(%dx%d)=>(%dx%d)/img(%dx%d),inSampleSize=%d",
+			requestWidth, requestHeight, reqWidth, reqHeight, imageWidth, imageHeight, inSampleSize));
 		return inSampleSize;
 	}
 
-	public static Bitmap copyBitmap(final Bitmap src, Bitmap dest) {
-		if (src == null)
-			throw new NullPointerException("src bitmap should not be null.");
+	@NonNull
+	public static Bitmap copyBitmap(@NonNull final Bitmap src, Bitmap dest) {
 		if (dest == null) {
 			dest = Bitmap.createBitmap(src);
 		} else if (!src.equals(dest)) {
@@ -750,10 +859,12 @@ public final class BitmapHelper {
 		return dest;
 	}
 
+//--------------------------------------------------------------------------------
 	/**
 	 * 透過部分の背景用に白とグレーの市松模様の単位パターンのビットマップを生成
 	 * @return
 	 */
+	@NonNull
 	public static Bitmap makeCheckBitmap() {
         final Bitmap bm = Bitmap.createBitmap(40, 40, Bitmap.Config.RGB_565);
         final Canvas c = new Canvas(bm);
@@ -779,33 +890,7 @@ public final class BitmapHelper {
 
 		if (DEBUG) Log.v(TAG, String.format("genMaskImage:(%dx%d)", width, height));
 
-		switch (type) {
-		case 0:
-		default:
-			return getMaskImage0(width, height, size, alpha0, alphaMax);
-		}
-	}
-
-	/**
-	 * 飽和計算
-	 * @param v
-	 * @param min
-	 * @param max
-	 * @return
-	 */
-	private static int sat(final int v, final int min, final int max) {
-		return v < min ? min : (v > max ? max : v);
-	}
-
-	/**
-	 * 飽和計算
-	 * @param v
-	 * @param min
-	 * @param max
-	 * @return
-	 */
-	private static int sat(final float v, final float min, final float max) {
-		return (int)(v < min ? min : (v > max ? max : v));
+		return getMaskImage0(width, height, size, alpha0, alphaMax);
 	}
 
 	/**
@@ -854,6 +939,159 @@ public final class BitmapHelper {
 		// 透過円
 		canvas.drawCircle(cx, cy, r, paint);
 		return offscreen;
+	}
+
+//--------------------------------------------------------------------------------
+
+	/**
+	 * 画像の回転角度を取得
+	 * @param path
+	 * @return 0, 90, 180, 270
+	 */
+	public static int getOrientation(final String path) {
+		final ExifInterface exif;
+	    try {
+	    	// これはファイルの位置によってはパーミッションが必要かも
+	        exif = new ExifInterface(path);
+		} catch (final Exception e) {	// IOException/IllegalArgumentException
+//        	if (DEBUG) Log.w(TAG, e);
+			return 0;
+		}
+		return getOrientation(exif);
+	}
+
+	/**
+	 * 画像の回転角度を取得
+	 * @param fd
+	 * @return 0, 90, 180, 270
+	 */
+	public static int getOrientation(final FileDescriptor fd) {
+		final ExifInterface exif;
+	    try {
+			// これはファイルの位置によってはパーミッションが必要かも
+	        exif = new ExifInterface(fd);
+		} catch (final Exception e) {	// IOException/IllegalArgumentException
+//        	if (DEBUG) Log.w(TAG, e);
+			return 0;
+		}
+		return getOrientation(exif);
+	}
+
+	private static int getOrientation(@NonNull final ExifInterface exif) {
+		final int rotation = exif.getAttributeInt(
+			ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+
+		int result;
+		switch (rotation) {
+		case ExifInterface.ORIENTATION_ROTATE_90:
+			result = 90;
+			break;
+		case ExifInterface.ORIENTATION_ROTATE_180:
+			result = 180;
+			break;
+		case ExifInterface.ORIENTATION_ROTATE_270:
+			result = 270;
+			break;
+		case ExifInterface.ORIENTATION_UNDEFINED:
+		default:
+			result = 0;
+			break;
+		}
+		if (DEBUG) Log.v(TAG, "getOrientation:" + result);
+		return result;
+	}
+
+	/**
+	 * 画像の回転角度を取得
+	 * @param cr
+	 * @param id
+	 * @return 0, 90, 180, 270
+	 */
+	public static int getOrientation(
+		@NonNull final ContentResolver cr, final long id) {
+
+		return getOrientation(cr,
+			ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
+	}
+
+	/**
+	 * 画像の回転角度を取得
+	 * @param cr
+	 * @param imageUri
+	 * @return 0, 90, 180, 270
+	 */
+	public static int getOrientation(
+		@NonNull final ContentResolver cr, @NonNull final  Uri imageUri) {
+
+		final ExifInterface exif;
+	    try {
+			// これはファイルの位置によってはパーミッションが必要かも
+	        exif = new ExifInterface(UriHelper.getAbsolutePath(cr, imageUri));
+		} catch (final Exception e) {	// IOException/IllegalArgumentException
+//        	if (DEBUG) Log.w(TAG, e);
+			return getOrientationFromMediaStore(cr, imageUri);
+		}
+        final int rotation = exif.getAttributeInt(
+        	ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+
+        if (rotation == ExifInterface.ORIENTATION_UNDEFINED) {
+        	// Exifに値がセットされていないときはMediaStoreからの取得を試みる
+            return getOrientationFromMediaStore(cr, imageUri);
+		} else {
+			return getOrientation(exif);
+		}
+	}
+
+	/**
+	 * MediaStoreから画像の回転角度を取得
+	 * @param cr
+	 * @param imageUri
+	 * @return 0, 90, 180, 270
+	 */
+	public static int getOrientationFromMediaStore(
+		@NonNull final ContentResolver cr, @NonNull final  Uri imageUri) {
+
+	    final String[] columns = {MediaStore.Images.Media.DATA, "orientation"};
+	    int result = 0;
+	    final Cursor cursor
+	    	= cr.query(imageUri, columns, null, null, null);
+	    try {
+	    	if (cursor != null) {
+				cursor.moveToFirst();
+				final int orientationColumnIndex = cursor.getColumnIndex(columns[1]);
+    			result = cursor.getInt(orientationColumnIndex);
+			}
+		} finally {
+			if (cursor != null) {
+				cursor.close();
+			}
+		}
+		if (DEBUG) Log.v(TAG, "getOrientationFromMediaStore:" + result);
+		return result;
+	}
+
+//--------------------------------------------------------------------------------
+// その他
+	/**
+	 * 飽和計算
+	 * @param v
+	 * @param min
+	 * @param max
+	 * @return
+	 */
+	private static int sat(final int v, final int min, final int max) {
+		return v < min ? min : (v > max ? max : v);
+	}
+
+	/**
+	 * 飽和計算
+	 * @param v
+	 * @param min
+	 * @param max
+	 * @return
+	 */
+	private static int sat(final float v, final float min, final float max) {
+		return (int)(v < min ? min : (v > max ? max : v));
 	}
 
 }

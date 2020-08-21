@@ -3,7 +3,7 @@ package com.serenegiant.preference;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,8 @@ public final class SubTitleListPreferenceV7 extends ListPreference {
 
 	public SubTitleListPreferenceV7(final Context context, final AttributeSet attrs, final int defStyle) {
 		super(context, attrs, defStyle);
-		TypedArray attribs = context.obtainStyledAttributes(attrs, R.styleable.SubTitlePreference, defStyle, 0);
+		TypedArray attribs = context.getTheme().obtainStyledAttributes(
+			attrs, R.styleable.SubTitlePreference, defStyle, 0);
 		mSubTitleLayoutId = attribs.getResourceId(R.styleable.SubTitlePreference_subtitle_layout, R.layout.subtitle);
 		mSubTitleTvId = attribs.getResourceId(R.styleable.SubTitlePreference_subtitle_id, R.id.subtitle);
 		mSubTitle = attribs.getString(R.styleable.SubTitlePreference_subtitle);

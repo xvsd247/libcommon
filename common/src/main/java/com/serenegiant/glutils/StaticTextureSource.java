@@ -2,7 +2,7 @@
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -219,7 +219,7 @@ public class StaticTextureSource {
 		public RendererTask(final StaticTextureSource parent,
 			final int width, final int height, final float fps) {
 
-			super(3, null, 0);
+			super(GLUtils.getSupportedGLVersion(), null, 0);
 			mParent = parent;
 			mVideoWidth = width;
 			mVideoHeight = height;
@@ -310,10 +310,7 @@ public class StaticTextureSource {
 		 */
 		public void addSurface(final int id, final Object surface, final int maxFps) {
 			checkFinished();
-			if (!((surface instanceof SurfaceTexture)
-				|| (surface instanceof Surface)
-					|| (surface instanceof SurfaceHolder))) {
-
+			if (!GLUtils.isSupportedSurface(surface)) {
 				throw new IllegalArgumentException(
 					"Surface should be one of Surface, SurfaceTexture or SurfaceHolder");
 			}

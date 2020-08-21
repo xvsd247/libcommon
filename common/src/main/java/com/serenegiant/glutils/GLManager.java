@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,8 @@ public class GLManager {
 	@NonNull
 	private final GLContext mGLContext;
 	@NonNull
-	private final HandlerThreadHandler mGLHandler;
+	private final Handler mGLHandler;
+	private final long mHandlerThreadId;
 	@Nullable
 	private final Handler.Callback mCallback;
 	private boolean mInitialized;
@@ -53,7 +54,7 @@ public class GLManager {
 	 * コンストラクタ
 	 */
 	public GLManager() {
-		this(3, null, 0, null);
+		this(GLUtils.getSupportedGLVersion(), null, 0, null);
 	}
 
 	/**
@@ -61,7 +62,7 @@ public class GLManager {
 	 * @param callback
 	 */
 	public GLManager(@Nullable final Handler.Callback callback) {
-		this(3, null, 0, callback);
+		this(GLUtils.getSupportedGLVersion(), null, 0, callback);
 	}
 
 	/**
@@ -96,17 +97,23 @@ public class GLManager {
 
 		if (DEBUG) Log.v(TAG, "コンストラクタ:");
 		mCallback = callback;
-		mGLContext = new GLContext(
-			(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) ? maxClientVersion : 2,
+		mGLContext = new GLContext(maxClientVersion,
 			sharedContext, flags);
-		mGLHandler = HandlerThreadHandler.createHandler(TAG,
-			new Handler.Callback() {
-				@Override
-				public boolean handleMessage(@NonNull final Message msg) {
-					return GLManager.this.handleMessage(msg);
-				}
+		final Handler.Callback handlerCallback
+			= new Handler.Callback() {
+			@Override
+			public boolean handleMessage(@NonNull final Message msg) {
+				return GLManager.this.handleMessage(msg);
 			}
-		);
+		};
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+			// API>=22ならHandlerを非同期仕様で初期化
+			mGLHandler = HandlerThreadHandler.createHandler(TAG, handlerCallback, true);
+		} else {
+			// API<22ならHandlerをLooperによる同期バリアを受ける設定で初期化
+			mGLHandler = HandlerThreadHandler.createHandler(TAG, handlerCallback);
+		}
+		mHandlerThreadId = mGLHandler.getLooper().getThread().getId();
 		final Semaphore sync = new Semaphore(0);
 		mGLHandler.postAtFrontOfQueue(new Runnable() {
 			@Override
@@ -272,7 +279,7 @@ public class GLManager {
 
 		if (DEBUG) Log.v(TAG, "postFrameCallbackDelayed:");
 		checkValid();
-		if (mGLHandler.isCurrentThread()) {
+		if (isGLThread()) {
 			// すでにGLスレッド上であれば直接実行
 			Choreographer.getInstance().postFrameCallbackDelayed(callback, delayMs);
 		} else {
@@ -297,7 +304,7 @@ public class GLManager {
 
 		if (DEBUG) Log.v(TAG, "removeFrameCallback:");
 		checkValid();
-		if (mGLHandler.isCurrentThread()) {
+		if (isGLThread()) {
 			// すでにGLスレッド上であれば直接実行
 			Choreographer.getInstance().removeFrameCallback(callback);
 		} else {
@@ -332,5 +339,13 @@ public class GLManager {
 			return mCallback.handleMessage(msg);
 		}
 		return false;
+	}
+
+	/**
+	 * 現在のスレッドがEGL/GLコンテキストを保持したスレッドかどうか
+ 	 * @return
+	 */
+	protected boolean isGLThread() {
+		return mHandlerThreadId == Thread.currentThread().getId();
 	}
 }

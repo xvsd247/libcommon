@@ -3,7 +3,7 @@ package com.serenegiant.glutils.es3;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ import static com.serenegiant.utils.BufferHelper.SIZEOF_FLOAT_BYTES;
 
 /**
  * OpenGL|ES3用のヘルパークラス
+ * FIXME EGLBase等と同じようにes2用とes3用のGLHelperを集約して抽象クラスにして下位のprivateクラスで実際の処理を実装するようにする？
  */
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
 public final class GLHelper {

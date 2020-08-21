@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import static com.serenegiant.glutils.AbstractDistributeTask.*;
 import static com.serenegiant.glutils.ShaderConst.GL_TEXTURE_EXTERNAL_OES;
 
 public abstract class AbstractRendererHolder implements IRendererHolder {
@@ -56,6 +55,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	protected final Object mSync = new Object();
 	@Nullable
 	private final RenderHolderCallback mCallback;
+	private final int mMaxClientVersion;
 	private volatile boolean isRunning;
 
 	private OutputStream mCaptureStream;
@@ -70,35 +70,22 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * コンストラクタ
 	 * @param width
 	 * @param height
-	 * @param callback
-	 */
-	protected AbstractRendererHolder(final int width, final int height,
-		@Nullable final RenderHolderCallback callback) {
-		
-		this(width, height,
-			3,
-			null,
-			EGLConst.EGL_FLAG_RECORDABLE,
-			callback);
-	}
-
-	/**
-	 * コンストラクタ
-	 * @param width
-	 * @param height
 	 * @param maxClientVersion
 	 * @param sharedContext
 	 * @param flags
+	 * @param enableVSync Choreographerを使ってvsync同期して映像更新するかどうか
 	 * @param callback
 	 */
 	protected AbstractRendererHolder(final int width, final int height,
 		final int maxClientVersion,
 		@Nullable final EGLBase.IContext sharedContext, final int flags,
+		final boolean enableVSync,
 		@Nullable final RenderHolderCallback callback) {
 
 		mCallback = callback;
+		mMaxClientVersion = maxClientVersion;
 		mRendererTask = createRendererTask(width, height,
-			maxClientVersion, sharedContext, flags);
+			maxClientVersion, sharedContext, flags, enableVSync);
 		mRendererTask.start(RENDERER_THREAD_NAME);
 		if (!mRendererTask.waitReady()) {
 			// 初期化に失敗した時
@@ -297,7 +284,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 */
 	@Override
 	public void requestFrame() {
-		mRendererTask.offer(REQUEST_DRAW);
+		mRendererTask.requestFrame();
 	}
 
 	/**
@@ -430,11 +417,23 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	}
 
 //--------------------------------------------------------------------------------
+
+	/**
+	 *
+	 * @param width
+	 * @param height
+	 * @param maxClientVersion
+	 * @param sharedContext
+	 * @param flags
+	 * @param enableVsync Choreographerを使ってvsync同期して映像更新するかどうか
+	 * @return
+	 */
 	@NonNull
 	protected abstract BaseRendererTask createRendererTask(
 		final int width, final int height,
 		final int maxClientVersion,
-		@Nullable final EGLBase.IContext sharedContext, final int flags);
+		@Nullable final EGLBase.IContext sharedContext, final int flags,
+		final boolean enableVsync);
 	
 //--------------------------------------------------------------------------------
 	protected void startCaptureTask() {
@@ -500,8 +499,8 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		@NonNull
 		final float[] mTexMatrix = new float[16];
 		private int mTexId;
-		private SurfaceTexture mMasterTexture;
-		private Surface mMasterSurface;
+		private SurfaceTexture mInputTexture;
+		private Surface mInputSurface;
 
 		/**
 		 * コンストラクタ:
@@ -511,13 +510,15 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @param maxClientVersion
 		 * @param sharedContext
 		 * @param flags
+		 * @param enableVSync Choreographerを使ってvsync同期して映像更新するかどうか
 		 */
 		public BaseRendererTask(@NonNull final AbstractRendererHolder parent,
 			final int width, final int height,
 			final int maxClientVersion,
-			@Nullable final EGLBase.IContext sharedContext, final int flags) {
+			@Nullable final EGLBase.IContext sharedContext, final int flags,
+			final boolean enableVSync) {
 
-			super(width, height);
+			super(width, height, enableVSync);
 			mParent = parent;
 			mEglTask = new EglTask(maxClientVersion, sharedContext, flags) {
 				@Override
@@ -603,6 +604,11 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		}
 
 		@Override
+		public GLContext getGLContext() {
+			return mEglTask.getGLContext();
+		}
+
+		@Override
 		public EGLBase.IContext getContext() {
 			return mEglTask.getContext();
 		}
@@ -618,8 +624,13 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		}
 
 		@Override
+		public boolean isOES3() {
+			return mEglTask.isOES3();
+		}
+
+		@Override
 		public boolean isMasterSurfaceValid() {
-			return (mMasterSurface != null) && (mMasterSurface.isValid());
+			return (mInputSurface != null) && (mInputSurface.isValid());
 		}
 
 		@Override
@@ -654,54 +665,54 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		}
 
 		/**
-		 * マスターSurfaceを再生成する
+		 * 映像入力用Surfaceを再生成する
 		 */
 		@SuppressLint("NewApi")
 		@WorkerThread
 		@Override
-		protected void handleReCreateMasterSurface() {
+		protected void handleReCreateInputSurface() {
 			makeCurrent();
-			handleReleaseMasterSurface();
+			handleReleaseInputSurface();
 			makeCurrent();
-			if (isGLES3()) {
+			if (isOES3()) {
 				mTexId = com.serenegiant.glutils.es3.GLHelper.initTex(
 					GL_TEXTURE_EXTERNAL_OES, GLES30.GL_TEXTURE0, GLES30.GL_NEAREST);
 			} else {
 				mTexId = com.serenegiant.glutils.es2.GLHelper.initTex(
 					GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE0, GLES20.GL_NEAREST);
 			}
-			mMasterTexture = new SurfaceTexture(mTexId);
-			mMasterSurface = new Surface(mMasterTexture);
+			mInputTexture = new SurfaceTexture(mTexId);
+			mInputSurface = new Surface(mInputTexture);
 			if (BuildCheck.isAndroid4_1()) {
-				mMasterTexture.setDefaultBufferSize(width(), height());
+				mInputTexture.setDefaultBufferSize(width(), height());
 			}
-			mMasterTexture.setOnFrameAvailableListener(this);
-			mParent.callOnCreate(mMasterSurface);
+			mInputTexture.setOnFrameAvailableListener(this);
+			mParent.callOnCreate(mInputSurface);
 		}
 
 		/**
-		 * マスターSurfaceを破棄する
+		 * 映像入力用Surfaceを破棄する
 		 */
 		@SuppressLint("NewApi")
 		@WorkerThread
 		@Override
-		protected void handleReleaseMasterSurface() {
-			if (mMasterSurface != null) {
+		protected void handleReleaseInputSurface() {
+			if (mInputSurface != null) {
 				try {
-					mMasterSurface.release();
+					mInputSurface.release();
 				} catch (final Exception e) {
 					Log.w(TAG, e);
 				}
-				mMasterSurface = null;
+				mInputSurface = null;
 				mParent.callOnDestroy();
 			}
-			if (mMasterTexture != null) {
+			if (mInputTexture != null) {
 				try {
-					mMasterTexture.release();
+					mInputTexture.release();
 				} catch (final Exception e) {
 					Log.w(TAG, e);
 				}
-				mMasterTexture = null;
+				mInputTexture = null;
 			}
 			if (mTexId != 0) {
 				if (isGLES3()) {
@@ -715,8 +726,8 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 
 		@Override
 		protected void handleUpdateTexture() {
-			mMasterTexture.updateTexImage();
-			mMasterTexture.getTransformMatrix(mTexMatrix);
+			mInputTexture.updateTexImage();
+			mInputTexture.getTransformMatrix(mTexMatrix);
 		}
 
 		/**
@@ -730,7 +741,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 			if (DEBUG) Log.v(TAG, String.format("handleResize:(%d,%d)", width, height));
 			super.handleResize(width, height);
 			if (BuildCheck.isAndroid4_1()) {
-				mMasterTexture.setDefaultBufferSize(width, height);
+				mInputTexture.setDefaultBufferSize(width, height);
 			}
 		}
 
@@ -744,19 +755,19 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @return
 		 */
 		public Surface getSurface() {
-//			if (DEBUG) Log.v(TAG, "getSurface:" + mMasterSurface);
+//			if (DEBUG) Log.v(TAG, "getSurface:" + mInputSurface);
 			checkMasterSurface();
-			return mMasterSurface;
+			return mInputSurface;
 		}
 
 		/**
-		 * マスター映像受け取り用のSurfaceTextureを取得
+		 * 映像受け取り用のSurfaceTextureを取得
 		 * @return
 		 */
 		public SurfaceTexture getSurfaceTexture() {
-//		if (DEBUG) Log.v(TAG, "getSurfaceTexture:" + mMasterTexture);
+//		if (DEBUG) Log.v(TAG, "getSurfaceTexture:" + mInputTexture);
 			checkMasterSurface();
-			return mMasterTexture;
+			return mInputTexture;
 		}
 
 		/**
@@ -771,9 +782,9 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		public void checkMasterSurface() {
 			checkFinished();
-			if ((mMasterSurface == null) || (!mMasterSurface.isValid())) {
+			if ((mInputSurface == null) || (!mInputSurface.isValid())) {
 				Log.d(TAG, "checkMasterSurface:invalid master surface");
-				mEglTask.offerAndWait(REQUEST_RECREATE_MASTER_SURFACE, 0, 0, null);
+				requestRecreateMasterSurface();
 			}
 		}
 
@@ -805,7 +816,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * 静止画を非同期でキャプチャするためのRunnable
 	 */
 	private final Runnable mCaptureTask = new Runnable() {
-    	private EGLBase eglBase;
+		private GLContext mContext;
 		private ISurface captureSurface;
 		private GLDrawer2D drawer;
 		private final float[] mMvpMatrix = new float[16];
@@ -826,7 +837,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 			if (isRunning) {
 				init();
 				try {
-					if ((eglBase.getGlVersion() > 2) && (BuildCheck.isAndroid4_3())) {
+					if (mContext.isOES3()) {
 						captureLoopGLES3();
 					} else {
 						captureLoopGLES2();
@@ -842,12 +853,12 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		}
 
 		private final void init() {
-	    	eglBase = EGLBase.createFrom(3,
-	    		mRendererTask.getContext(), false, 0, false);
-	    	captureSurface = eglBase.createOffscreen(
+			mContext = new GLContext(mRendererTask.getGLContext());
+			mContext.initialize();
+	    	captureSurface = mContext.getEgl().createOffscreen(
 	    		mRendererTask.width(), mRendererTask.height());
 			Matrix.setIdentityM(mMvpMatrix, 0);
-			drawer = GLDrawer2D.create(eglBase.getGlVersion() > 2, true);
+			drawer = GLDrawer2D.create(mContext.isOES3(), true);
 			setupCaptureDrawer(drawer);
 		}
 
@@ -889,7 +900,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				    		captureSurface.release();
 				    		captureSurface = null;
 				    	}
-				    	captureSurface = eglBase.createOffscreen(width, height);
+				    	captureSurface = mContext.getEgl().createOffscreen(width, height);
 					}
 					if (isRunning && (width > 0) && (height > 0)) {
 						GLUtils.setMirror(mMvpMatrix, mRendererTask.mirror());
@@ -980,7 +991,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				    		captureSurface.release();
 				    		captureSurface = null;
 				    	}
-				    	captureSurface = eglBase.createOffscreen(width, height);
+				    	captureSurface = mContext.getEgl().createOffscreen(width, height);
 					}
 					if (isRunning && (width > 0) && (height > 0)) {
 						GLUtils.setMirror(mMvpMatrix, mRendererTask.mirror());
@@ -1043,9 +1054,9 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				drawer.release();
 				drawer = null;
 			}
-			if (eglBase != null) {
-				eglBase.release();
-				eglBase = null;
+			if (mContext != null) {
+				mContext.release();
+				mContext = null;
 			}
 		}
 	};	// mCaptureTask

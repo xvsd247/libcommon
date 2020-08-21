@@ -3,7 +3,7 @@ package com.serenegiant.preference;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class TimePickerPreferenceV7 extends DialogPreferenceV7 {
 
 		super(context, attrs, defStyle);
 
-        final TypedArray a = context.obtainStyledAttributes(
+        final TypedArray a = context.getTheme().obtainStyledAttributes(
 			attrs, R.styleable.TimePicker, defStyle, 0);
         mDefaultValue = (long)a.getFloat(R.styleable.TimePicker_TimePickerDefaultValue, -1);
         a.recycle();

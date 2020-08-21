@@ -3,7 +3,7 @@ package com.serenegiant.net;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.serenegiant.system.BuildCheck;
+import com.serenegiant.system.ContextUtils;
 import com.serenegiant.utils.ComponentUtils;
 
 /**
@@ -351,8 +352,7 @@ public class NetworkChangedReceiver extends BroadcastReceiver {
 	@SuppressLint("NewApi")
 	private void onReceiveGlobal(final Context context, final Intent intent) {
 		final ConnectivityManager connMgr
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 		final LocalBroadcastManager broadcastManager
 			= LocalBroadcastManager.getInstance(context.getApplicationContext());
 
@@ -446,8 +446,7 @@ public class NetworkChangedReceiver extends BroadcastReceiver {
 	 */
 	public static boolean isWifiNetworkReachable(final Context context) {
 		final ConnectivityManager connMgr
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 		final NetworkInfo activeNetworkInfo = connMgr.getActiveNetworkInfo();
 		if ((activeNetworkInfo != null) && (activeNetworkInfo.isConnectedOrConnecting())) {
 			final int type = activeNetworkInfo.getType();
@@ -480,8 +479,7 @@ public class NetworkChangedReceiver extends BroadcastReceiver {
 	 */
 	public static boolean isMobileNetworkReachable(final Context context) {
 		final ConnectivityManager connMgr
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 		final NetworkInfo activeNetworkInfo = connMgr.getActiveNetworkInfo();
 		if ((activeNetworkInfo != null) && (activeNetworkInfo.isConnectedOrConnecting())) {
 			final int type = activeNetworkInfo.getType();
@@ -509,8 +507,7 @@ public class NetworkChangedReceiver extends BroadcastReceiver {
 	 */
 	public static boolean isNetworkReachable(final Context context) {
 		final ConnectivityManager connMgr
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 		final NetworkInfo activeNetworkInfo = connMgr.getActiveNetworkInfo();
 		return (activeNetworkInfo != null) && (activeNetworkInfo.isConnectedOrConnecting());
 	}

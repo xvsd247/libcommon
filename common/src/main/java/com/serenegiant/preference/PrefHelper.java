@@ -4,7 +4,7 @@ package com.serenegiant.preference;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,6 +124,19 @@ public class PrefHelper {
 			}
 		}
 		return result;
+	}
+
+	@SuppressWarnings("unchecked")
+	public <T> T get(@Nullable final SharedPreferences pref,
+		final String key, final T defaultValue) {
+
+		final Class<?> clazz = defaultValue.getClass();
+		final Object result = getObject(pref, key, defaultValue);
+		if (clazz.isInstance(result)) {
+			return (T)result;
+		} else {
+			return defaultValue;
+		}
 	}
 
 	public static final Object getObject(@Nullable final SharedPreferences pref,

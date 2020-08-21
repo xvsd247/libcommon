@@ -3,7 +3,7 @@ package com.serenegiant.net;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,15 +33,12 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.channels.ClosedChannelException;
-import java.nio.charset.Charset;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 public abstract class AbstractChannelDataLink {
 	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private static final String TAG = AbstractChannelDataLink.class.getSimpleName();
-
-	private static final Charset UTF8 = Charset.forName("UTF-8");
 
 	public interface Callback {
 		public void onConnect(final AbstractClient client);

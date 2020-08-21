@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,11 @@ import android.content.Context;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.text.TextUtils;
+import android.util.Log;
 
+import com.serenegiant.system.SAFUtils;
+import com.serenegiant.system.StorageUtils;
 import com.serenegiant.utils.FileUtils;
-import com.serenegiant.utils.SAFUtils;
 import com.serenegiant.system.StorageInfo;
 import com.serenegiant.utils.UriHelper;
 
@@ -40,7 +42,7 @@ public class MediaAVRecorder extends Recorder {
 //	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private static final String TAG = MediaAVRecorder.class.getSimpleName();
 
-	protected final int mSaveTreeId;	// SDカードへの出力を試みるかどうか
+	protected final int mSaveTreeId;	// 0以外: SFAを使った出力を行うかどうか
 
 	protected String mOutputPath;
 	protected DocumentFile mOutputFile;
@@ -51,7 +53,7 @@ public class MediaAVRecorder extends Recorder {
 	 * @param context
 	 * @param callback
 	 * @param ext 出力ファイルの拡張子
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @throws IOException
 	 */
 	public MediaAVRecorder(@NonNull final Context context,
@@ -66,7 +68,7 @@ public class MediaAVRecorder extends Recorder {
 	 * @param context
 	 * @param callback
 	 * @param ext 出力ファイルの拡張子
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @param factory
 	 * @throws IOException
 	 */
@@ -84,7 +86,7 @@ public class MediaAVRecorder extends Recorder {
 	 * @param callback
 	 * @param prefix
 	 * @param _ext
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @throws IOException
 	 */
 	public MediaAVRecorder(@NonNull final Context context,
@@ -101,7 +103,7 @@ public class MediaAVRecorder extends Recorder {
 	 * @param callback
 	 * @param prefix
 	 * @param _ext
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @param factory
 	 * @throws IOException
 	 */
@@ -117,7 +119,7 @@ public class MediaAVRecorder extends Recorder {
 	 * コンストラクタ
 	 * @param context
 	 * @param callback
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @param dirs savedTreeIdが示すディレクトリからの相対ディレクトリパス, nullならsavedTreeIdが示すディレクトリ
 	 * @param fileName
 	 * @throws IOException
@@ -134,7 +136,7 @@ public class MediaAVRecorder extends Recorder {
 	 * コンストラクタ
 	 * @param context
 	 * @param callback
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @param dirs savedTreeIdが示すディレクトリからの相対ディレクトリパス, nullならsavedTreeIdが示すディレクトリ
 	 * @param fileName
 	 * @param factory
@@ -215,7 +217,7 @@ public class MediaAVRecorder extends Recorder {
 	 * @param callback
 	 * @param prefix
 	 * @param _ext
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @param factory
 	 * @throws IOException
 	 */
@@ -231,13 +233,14 @@ public class MediaAVRecorder extends Recorder {
 		if (TextUtils.isEmpty(ext)) {
 			ext = ".mp4";
 		}
-		if ((saveTreeId > 0) && SAFUtils.hasStorageAccess(context, saveTreeId)) {
+		if ((saveTreeId != 0) && SAFUtils.hasPermission(context, saveTreeId)) {
 			mOutputPath = FileUtils.getCaptureFile(context,
 				Environment.DIRECTORY_MOVIES, prefix, ext, saveTreeId).toString();
 			final String file_name = (TextUtils.isEmpty(prefix)
 				? FileUtils.getDateTimeString()
 				: prefix + FileUtils.getDateTimeString()) + ext;
-			final int fd = SAFUtils.createStorageFileFD(context, saveTreeId, "*/*", file_name);
+//			final int fd = SAFUtils.createStorageFileFD(context, saveTreeId, "*/*", file_name);
+			final int fd = SAFUtils.getFd(context, saveTreeId, null, "*/*", file_name).getFd();
 			setupMuxer(fd);
 		} else {
 			try {
@@ -255,7 +258,7 @@ public class MediaAVRecorder extends Recorder {
 	 * @param context
 	 * @param callback
 	 * @param config
-	 * @param saveTreeId
+	 * @param saveTreeId 0: SAFを使わない, それ以外: SAFのツリーIDとみなして処理を試みる
 	 * @param dirs savedTreeIdが示すディレクトリからの相対ディレクトリパス, nullならsavedTreeIdが示すディレクトリ
 	 * @param fileName
 	 * @param factory
@@ -269,8 +272,8 @@ public class MediaAVRecorder extends Recorder {
 
 		super(context, callback, config, factory);
 		mSaveTreeId = saveTreeId;
-		if ((saveTreeId > 0) && SAFUtils.hasStorageAccess(context, saveTreeId)) {
-			DocumentFile tree = SAFUtils.getStorageFile(context,
+		if ((saveTreeId > 0) && SAFUtils.hasPermission(context, saveTreeId)) {
+			DocumentFile tree = SAFUtils.getFile(context,
 				saveTreeId, dirs, "*/*", fileName);
 			if (tree != null) {
 				mOutputPath = UriHelper.getPath(context, tree.getUri());
@@ -368,11 +371,16 @@ public class MediaAVRecorder extends Recorder {
 	@Override
 	protected boolean check() {
 		final Context context = requireContext();
-		final StorageInfo info = mOutputFile != null
-			? SAFUtils.getStorageInfo(context, mOutputFile) : null;
-		if ((info != null) && (info.totalBytes != 0)) {
-			return ((info.freeBytes/ (float)info.totalBytes) < FileUtils.FREE_RATIO)
-				|| (info.freeBytes < FileUtils.FREE_SIZE);
+		final StorageInfo info;
+		try {
+			info = mOutputFile != null
+				? StorageUtils.getStorageInfo(context, mOutputFile) : null;
+			if ((info != null) && (info.totalBytes != 0)) {
+				return ((info.freeBytes/ (float)info.totalBytes) < FileUtils.FREE_RATIO)
+					|| (info.freeBytes < FileUtils.FREE_SIZE);
+			}
+		} catch (final IOException e) {
+			Log.w(TAG, e);
 		}
 		return (context == null)
 			|| ((mOutputFile == null)

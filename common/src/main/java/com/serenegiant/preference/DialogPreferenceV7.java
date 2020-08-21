@@ -3,7 +3,7 @@ package com.serenegiant.preference;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,8 +90,8 @@ public class DialogPreferenceV7 extends Preference
 		
 		super(context, attrs, defStyleAttr, defStyleRes);
 
-		final TypedArray a = context.obtainStyledAttributes(attrs,
-			androidx.preference.R.styleable.DialogPreference,
+		final TypedArray a = context.getTheme().obtainStyledAttributes(
+			attrs, androidx.preference.R.styleable.DialogPreference,
 			defStyleAttr, defStyleRes);
 		
 		mDialogTitle = a.getString(

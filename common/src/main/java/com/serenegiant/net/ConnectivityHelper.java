@@ -3,7 +3,7 @@ package com.serenegiant.net;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import androidx.annotation.RequiresPermission;
 import android.util.Log;
 
 import com.serenegiant.system.BuildCheck;
+import com.serenegiant.system.ContextUtils;
 import com.serenegiant.utils.HandlerThreadHandler;
 
 import java.lang.ref.WeakReference;
@@ -209,13 +210,7 @@ public class ConnectivityHelper {
 	private ConnectivityManager requireConnectivityManager()
 		throws IllegalStateException {
 		
-		final Context context = requireContext();
-		final ConnectivityManager connManager
-			= (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-		if (connManager == null) {
-			throw new IllegalStateException("failed to get ConnectivityManager");
-		}
-		return connManager;
+		return ContextUtils.requireSystemService(requireContext(), ConnectivityManager.class);
 	}
 
 //--------------------------------------------------------------------------------
@@ -469,9 +464,8 @@ public class ConnectivityHelper {
 		 */
 		private void onReceiveGlobal(final Context context, final Intent intent) {
 			final ConnectivityManager manager
-				= (ConnectivityManager) context
-					.getSystemService(Context.CONNECTIVITY_SERVICE);
-	
+				= ContextUtils.requireSystemService(context, ConnectivityManager.class);
+
 			// コールバックリスナーを呼び出す
 			mParent.updateActiveNetwork(manager.getActiveNetworkInfo());
 		}
@@ -492,8 +486,7 @@ public class ConnectivityHelper {
 	public static boolean isWifiNetworkReachable(@NonNull final Context context) {
 		if (DEBUG) Log.v(TAG, "isWifiNetworkReachable:");
 		final ConnectivityManager manager
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 		if (BuildCheck.isAPI21()) {
 			if (BuildCheck.isAPI23()) {
 				final Network network = manager.getActiveNetwork();	// API>=23
@@ -544,8 +537,7 @@ public class ConnectivityHelper {
 	public static boolean isMobileNetworkReachable(@NonNull final Context context) {
 		if (DEBUG) Log.v(TAG, "isMobileNetworkReachable:");
 		final ConnectivityManager manager
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 		if (BuildCheck.isAPI21()) {
 			if (BuildCheck.isAPI23()) {
 				final Network network = manager.getActiveNetwork();	// API>=23
@@ -589,8 +581,7 @@ public class ConnectivityHelper {
 	public static boolean isNetworkReachable(@NonNull final Context context) {
 		if (DEBUG) Log.v(TAG, "isNetworkReachable:");
 		final ConnectivityManager manager
-			= (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
+			= ContextUtils.requireSystemService(context, ConnectivityManager.class);
 
 		if (BuildCheck.isAPI21()) {
 			// FIXME API>=29でNetworkInfoがdeprecatedなので対策を追加する

@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,23 @@ public class RendererHolder extends AbstractRendererHolder {
 
 		this(width, height,
 			3, null, EGLConst.EGL_FLAG_RECORDABLE,
-			callback);
+			false, callback);
+	}
+
+	/**
+	 * コンストラクタ
+	 * @param width
+	 * @param height
+	 * @param enableVSync Choreographerを使ってvsync同期して映像更新するかどうか
+	 * @param callback
+	 */
+	public RendererHolder(final int width, final int height,
+		final boolean enableVSync,
+		@Nullable final RenderHolderCallback callback) {
+
+		this(width, height,
+			3, null, EGLConst.EGL_FLAG_RECORDABLE,
+			enableVSync, callback);
 	}
 
 	/**
@@ -51,12 +67,35 @@ public class RendererHolder extends AbstractRendererHolder {
 	 * @param flags
 	 * @param callback
 	 */
-	protected RendererHolder(final int width, final int height,
+	public RendererHolder(final int width, final int height,
 		final int maxClientVersion,
 		@Nullable final EGLBase.IContext sharedContext, final int flags,
 		@Nullable final RenderHolderCallback callback) {
 
-		super(width, height, maxClientVersion, sharedContext, flags, callback);
+		this(width, height,
+			maxClientVersion, sharedContext, flags,
+			false, callback);
+	}
+
+	/**
+	 * コンストラクタ
+	 * @param width
+	 * @param height
+	 * @param maxClientVersion
+	 * @param sharedContext
+	 * @param flags
+	 * @param enableVSync Choreographerを使ってvsync同期して映像更新するかどうか
+	 * @param callback
+	 */
+	public RendererHolder(final int width, final int height,
+		final int maxClientVersion,
+		@Nullable final EGLBase.IContext sharedContext, final int flags,
+		final boolean enableVSync,
+		@Nullable final RenderHolderCallback callback) {
+
+		super(width, height,
+			maxClientVersion, sharedContext, flags,
+			enableVSync, callback);
 	}
 
 	@NonNull
@@ -64,10 +103,11 @@ public class RendererHolder extends AbstractRendererHolder {
 	protected BaseRendererTask createRendererTask(
 		final int width, final int height,
 		final int maxClientVersion,
-		@Nullable final EGLBase.IContext sharedContext, final int flags) {
+		@Nullable final EGLBase.IContext sharedContext, final int flags,
+		final boolean enableVsync) {
 
 		return new BaseRendererTask(this, width, height,
-			maxClientVersion, sharedContext, flags);
+			maxClientVersion, sharedContext, flags, enableVsync);
 	}
 	
 }

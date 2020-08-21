@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration  {
 
 	public DividerItemDecoration(final Context context) {
 		Drawable divider = null;
-		final TypedArray a = context.obtainStyledAttributes(ATTRS);
+		final TypedArray a = context.getTheme().obtainStyledAttributes(ATTRS);
 		try {
 			divider = a.getDrawable(0);
 		} catch (final Exception e) {

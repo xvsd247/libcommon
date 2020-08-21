@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,6 @@ public abstract class AbstractFakeEncoder implements Encoder {
 //	private static final boolean DEBUG = false;	// FIXME 実働時にはfalseにすること
 	private static final String TAG = AbstractFakeEncoder.class.getSimpleName();
 
-	@SuppressWarnings("deprecation")
 	@SuppressLint("InlinedApi")
 	public static final int BUFFER_FLAG_KEY_FRAME
 		= BuildCheck.isLollipop()

@@ -3,7 +3,7 @@ package com.serenegiant.preference;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class OnDisplayPreferenceDialogDelegater {
 		final Preference preference) {
 
 		if (DEBUG) Log.v(TAG, "onDisplayPreferenceDialog:" + preference);
-		final androidx.fragment.app.FragmentManager fm = fragment.getFragmentManager();
+		final androidx.fragment.app.FragmentManager fm = fragment.getParentFragmentManager();
 		if (preference instanceof NumberPickerPreferenceV7) {
 			// check if dialog is already showing
 			if (fm.findFragmentByTag(DIALOG_FRAGMENT_TAG) != null) {

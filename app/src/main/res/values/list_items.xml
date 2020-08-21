@@ -1,22 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="item0" translatable="false">NetworkConnection</string>
-	<string name="item1" translatable="false">UsbMonitor</string>
-	<string name="item2" translatable="false">Camera</string>
-	<string name="item3" translatable="false">EffectCamera</string>
-	<string name="item4" translatable="false">MixCamera</string>
-	<string name="item5" translatable="false">OverlayCamera</string>
-	<string name="item6" translatable="false">VideoSourceCamera</string>
-	<string name="item7" translatable="false">VideoSourceDistributorCamera</string>
+	<string name="title_request_saf_permission" translatable="false">SAFUtils</string>
+	<string name="title_saf_filer" translatable="false">SAFFiler</string>
+	<string name="title_network_connection" translatable="false">NetworkConnection</string>
+	<string name="title_usB_monitor" translatable="false">UsbMonitor</string>
+	<string name="title_camera" translatable="false">Camera</string>
+	<string name="title_camera_rec" translatable="false">Camera(MediaAVRecorder)</string>
+	<string name="title_effect_camera" translatable="false">EffectCamera</string>
+	<string name="title_mix_camera" translatable="false">MixCamera</string>
+	<string name="title_overlay_camera" translatable="false">OverlayCamera</string>
+	<string name="title_video_source_camera" translatable="false">VideoSourceCamera</string>
+	<string name="title_video_source_dist_camera" translatable="false">VideoSourceDistributorCamera</string>
+	<string name="title_image_view_camera" translatable="false">ImageViewCamera</string>
+	<string name="title_texture_view_camera" translatable="false">TextureViewCamera</string>
+	<string name="title_simple_gl_camera" translatable="false">SimpleCameraGL</string>
+	<string name="title_camera_surface" translatable="false">CameraSurface</string>
+	<string name="title_galley" translatable="false">Galley</string>
+	<string name="title_galley_recycler" translatable="false">Galley(RecyclerView)</string>
+	<string name="title_number_keyboard" translatable="false">NumberKeyboard</string>
+	<string name="title_view_slider" translatable="false">ViewSlider</string>
+	<string name="title_progress_view" translatable="false">ProgressView</string>
 
 	<string-array name="list_items">
-		<item>@string/item0</item>
-		<item>@string/item1</item>
-		<item>@string/item2</item>
-		<item>@string/item3</item>
-		<item>@string/item4</item>
-		<item>@string/item5</item>
-		<item>@string/item6</item>
-		<item>@string/item7</item>
+		<item>@string/title_request_saf_permission</item>
+		<item>@string/title_saf_filer</item>
+		<item>@string/title_network_connection</item>
+		<item>@string/title_usB_monitor</item>
+		<item>@string/title_camera</item>
+		<item>@string/title_camera_rec</item>
+		<item>@string/title_effect_camera</item>
+		<item>@string/title_mix_camera</item>
+		<item>@string/title_overlay_camera</item>
+		<item>@string/title_video_source_camera</item>
+		<item>@string/title_video_source_dist_camera</item>
+		<item>@string/title_image_view_camera</item>
+		<item>@string/title_texture_view_camera</item>
+		<item>@string/title_simple_gl_camera</item>
+		<item>@string/title_camera_surface</item>
+		<item>@string/title_galley</item>
+		<item>@string/title_galley_recycler</item>
+		<item>@string/title_number_keyboard</item>
+		<item>@string/title_view_slider</item>
+		<item>@string/title_progress_view</item>
 	</string-array>
 </resources>

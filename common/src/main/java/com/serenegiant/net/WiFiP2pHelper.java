@@ -3,7 +3,7 @@ package com.serenegiant.net;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import androidx.annotation.NonNull;
 import android.util.Log;
+
+import com.serenegiant.system.ContextUtils;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -96,7 +98,7 @@ public class WiFiP2pHelper {
 	 */
 	private WiFiP2pHelper(@NonNull final Context context) {
 		mWeakContext = new WeakReference<Context>(context);
-		mWifiP2pManager = (WifiP2pManager) context.getSystemService(Context.WIFI_P2P_SERVICE);
+		mWifiP2pManager = ContextUtils.requireSystemService(context, WifiP2pManager.class);
 	}
 	
 	/**

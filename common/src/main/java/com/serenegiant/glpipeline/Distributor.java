@@ -3,7 +3,7 @@ package com.serenegiant.glpipeline;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class Distributor implements IPipeline {
 	 * @param source
 	 */
 	public Distributor(@NonNull final IPipelineSource source) {
-		this(source, null, false);
+		this(source, null, false, false);
 	}
 
 	/**
@@ -77,6 +77,21 @@ public class Distributor implements IPipeline {
 	public Distributor(@NonNull final IPipelineSource source,
 		@Nullable final IRendererHolder.RenderHolderCallback callback,
 		final boolean useSharedContext) {
+
+		this(source, callback, useSharedContext, false);
+	}
+
+	/**
+	 * コンストラクタ
+	 * XXX useSharedContext = trueで共有コンテキストを使ったマルチスレッド処理を有効にするとGPUのドライバー内でクラッシュする端末がある
+	 * @param source
+	 * @param callback
+	 * @param useSharedContext 共有コンテキストを使ったマルチスレッド処理を行うかどう
+	 * @param enableVsync vsyncに同期して描画要求するかどうか
+	 */
+	public Distributor(@NonNull final IPipelineSource source,
+		@Nullable final IRendererHolder.RenderHolderCallback callback,
+		final boolean useSharedContext, final boolean enableVsync) {
 
 		mSource = source;
 		final Handler.Callback handlerCallback
@@ -102,7 +117,8 @@ public class Distributor implements IPipeline {
 		mCallback = callback;
 		mDistributeTask = new DistributeTask(
 			mManager.getGLContext(), glHandler,
-			source.getWidth(), source.getHeight());
+			source.getWidth(), source.getHeight(),
+			enableVsync);
 		source.add(mOnFrameAvailableListener);
 		mDistributeTask.start(RENDERER_THREAD_NAME);
 	}
@@ -351,12 +367,14 @@ public class Distributor implements IPipeline {
 		 * @param glHandler
 		 * @param width
 		 * @param height
+		 * @param enableVSync Choreographerを使ってvsync同期して映像更新するかどうか
 		 */
 		public DistributeTask(@NonNull final GLContext glContext,
 			@NonNull final Handler glHandler,
-			final int width, final int height) {
+			final int width, final int height,
+			final boolean enableVSync) {
 
-			super(width, height);
+			super(width, height, enableVSync);
 			mGLContext = glContext;
 			mGLHandler = glHandler;
 			isGLES3 = glContext.isGLES3();
@@ -442,6 +460,11 @@ public class Distributor implements IPipeline {
 		}
 
 		@Override
+		public GLContext getGLContext() {
+			return mGLContext;
+		}
+
+		@Override
 		public EGLBase.IContext getContext() {
 			return mGLContext.getContext();
 		}
@@ -453,7 +476,12 @@ public class Distributor implements IPipeline {
 
 		@Override
 		public boolean isGLES3() {
-			return isGLES3;
+			return mGLContext.isGLES3();
+		}
+
+		@Override
+		public boolean isOES3() {
+			return mGLContext.isOES3();
 		}
 
 		@Override
@@ -479,14 +507,14 @@ public class Distributor implements IPipeline {
 		}
 
 		@Override
-		protected void handleReCreateMasterSurface() {
+		protected void handleReCreateInputSurface() {
 			if (mSource.isValid()) {
 				callOnCreate(mSource.getInputSurface());
 			}
 		}
 
 		@Override
-		protected void handleReleaseMasterSurface() {
+		protected void handleReleaseInputSurface() {
 			callOnDestroy();
 		}
 

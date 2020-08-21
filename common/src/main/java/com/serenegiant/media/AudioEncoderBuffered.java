@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ public class AudioEncoderBuffered extends AbstractAudioEncoder {
 		try {
 			result = mPool.poll(20, TimeUnit.MILLISECONDS);
 		} catch (final InterruptedException e) {
+			// ignore
 		}
 		if ((result == null) && (mBufferNum < MAX_POOL_SIZE) ) {
 			result = new MediaData(mBufferSize);

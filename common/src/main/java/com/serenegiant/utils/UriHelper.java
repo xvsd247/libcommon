@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,11 @@ import android.util.Log;
 import com.serenegiant.system.BuildCheck;
 
 import java.io.File;
+import java.util.ArrayList;
 
+/**
+ * Android10以降の対象範囲別外部ストレージのUriは正常に動作しないかも
+ */
 public final class UriHelper {
 	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private static final String TAG = UriHelper.class.getSimpleName();
@@ -61,8 +65,9 @@ public final class UriHelper {
 				final Cursor cursor = cr.query(uri, columns, null, null, null);
 				if (cursor != null)
 				try {
-					if (cursor.moveToFirst())
-					path = cursor.getString(0);
+					if (cursor.moveToFirst()) {
+						path = cursor.getString(0);
+					}
 				} finally {
 					cursor.close();
 				}
@@ -77,39 +82,27 @@ public final class UriHelper {
 	public static final String[] STANDARD_DIRECTORIES;
 	
 	 static {
+	 	final ArrayList<String> list = new ArrayList<>();
+		list.add(Environment.DIRECTORY_MUSIC);
+		list.add(Environment.DIRECTORY_PODCASTS);
+		list.add(Environment.DIRECTORY_RINGTONES);
+		list.add(Environment.DIRECTORY_ALARMS);
+		list.add(Environment.DIRECTORY_NOTIFICATIONS);
+		list.add(Environment.DIRECTORY_PICTURES);
+		list.add(Environment.DIRECTORY_MOVIES);
+		list.add(Environment.DIRECTORY_DOWNLOADS);
+		list.add(Environment.DIRECTORY_DCIM);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-			STANDARD_DIRECTORIES = new String[] {
-				Environment.DIRECTORY_MUSIC,
-				Environment.DIRECTORY_PODCASTS,
-				Environment.DIRECTORY_RINGTONES,
-				Environment.DIRECTORY_ALARMS,
-				Environment.DIRECTORY_NOTIFICATIONS,
-				Environment.DIRECTORY_PICTURES,
-				Environment.DIRECTORY_MOVIES,
-				Environment.DIRECTORY_DOWNLOADS,
-				Environment.DIRECTORY_DCIM,
-				Environment.DIRECTORY_DOCUMENTS,	// API>= 19
-			};
-		} else {
-			STANDARD_DIRECTORIES = new String[] {
-				Environment.DIRECTORY_MUSIC,
-				Environment.DIRECTORY_PODCASTS,
-				Environment.DIRECTORY_RINGTONES,
-				Environment.DIRECTORY_ALARMS,
-				Environment.DIRECTORY_NOTIFICATIONS,
-				Environment.DIRECTORY_PICTURES,
-				Environment.DIRECTORY_MOVIES,
-				Environment.DIRECTORY_DOWNLOADS,
-				Environment.DIRECTORY_DCIM,
-			};
+			list.add(Environment.DIRECTORY_DOCUMENTS);	// API>=19
 		}
+		 STANDARD_DIRECTORIES = list.toArray(new String[0]);
 	}
 
 	public static boolean isStandardDirectory(final @NonNull String dir) {
 		try {
 			for (final String valid : STANDARD_DIRECTORIES) {
 				if (valid.equals(dir)) {
-						return true;
+					return true;
 				}
 			}
 		} catch (final Exception e) {
@@ -209,7 +202,7 @@ public final class UriHelper {
 				// DownloadsProvider
 	            final String id = DocumentsContract.getDocumentId(uri);
 	            final Uri contentUri = ContentUris.withAppendedId(
-	                    Uri.parse("content://downloads/public_downloads"), Long.valueOf(id));
+	                    Uri.parse("content://downloads/public_downloads"), Long.parseLong(id));
 
 	            return getDataColumn(context, contentUri, null, null);
 	        } else if (isMediaDocument(uri)) {

@@ -3,7 +3,7 @@ package com.serenegiant.system;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -590,11 +590,27 @@ public final class BuildCheck {
 		return check((Build.VERSION_CODES.P));
 	}
 
+	/**
+	 * きゅぅっ API>=29
+	 * @return
+	 */
 	public static boolean isAPI29() {
 		return check((Build.VERSION_CODES.Q));
 	}
 
+	/**
+	 * きゅぅっ API>=29
+	 * @return
+	 */
 	public static boolean isQ() {
+		return check((Build.VERSION_CODES.Q));
+	}
+
+	/**
+	 * きゅぅっ API>=29
+	 * @return
+	 */
+	public static boolean isAndroid10() {
 		return check((Build.VERSION_CODES.Q));
 	}
 }

@@ -1,33 +1,54 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'kotlin-android-extensions'
 
 android {
     compileSdkVersion versionCompiler
    	buildToolsVersion versionBuildTool
+
    	compileOptions {
    		sourceCompatibility javaSourceCompatibility
    		targetCompatibility javaTargetCompatibility
    	}
+
     defaultConfig {
         applicationId "com.serenegiant.libcommon"
         minSdkVersion 16
         targetSdkVersion versionTarget
         versionCode versionCodeNum
         versionName versionNameString
+
+		buildConfigField "boolean", "ENABLE_VSYNC", "${project.property("ENABLE_VSYNC")}"
+
+		vectorDrawables.useSupportLibrary = true
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+	dataBinding {
+		enabled = true
+	}
 }
 
 dependencies {
 	implementation fileTree(dir: 'libs', include: ['*.jar'])
+	implementation "androidx.core:core:${androidXCore}"
 	implementation "androidx.legacy:legacy-support-v4:${androidXLegacyV4}"
 	implementation "androidx.appcompat:appcompat:${androidXVersion}"
 	implementation "androidx.recyclerview:recyclerview:${androidXRecyclerview}"
-	implementation "androidx.constraintlayout:constraintlayout:${constraintLibVersion}"
+	implementation "androidx.lifecycle:lifecycle-extensions:${androidXLifecycleExt}"
+	implementation "androidx.constraintlayout:constraintlayout:${androidXConstraint}"
+	implementation "com.google.android.material:material:${androidXMaterial}"
+
+	implementation "androidx.core:core-ktx:${androidXKtx}"
+	implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:${androidXKtxLifecycle}"
+	implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${kotlin_version}"
 
 	implementation project(':common')
 }

@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,16 @@ public class RendererTarget implements IRendererTarget {
 		return mMvpMatrix;
 	}
 
+	@Override
+	public int width() {
+		return mTargetSurface != null ? mTargetSurface.getWidth() : 0;
+	}
+
+	@Override
+	public int height() {
+		return mTargetSurface != null ? mTargetSurface.getHeight() : 0;
+	}
+
 	/**
 	 * このRendererTargetが保持する描画先(Surface等)へIDrawer2Dを使って指定したテクスチャを描画する
 	 * @param drawer
@@ -150,7 +160,7 @@ public class RendererTarget implements IRendererTarget {
 	 * @param texMatrix
 	 * @param mvpMatrix
 	 */
-	protected void doDraw(final GLDrawer2D drawer,
+	protected static void doDraw(final GLDrawer2D drawer,
 		final int textId, final float[] texMatrix,
 		final float[] mvpMatrix) {
 
@@ -187,6 +197,7 @@ public class RendererTarget implements IRendererTarget {
 	public void makeCurrent() throws IllegalStateException {
 		check();
 		mTargetSurface.makeCurrent();
+		mTargetSurface.setViewPort(0, 0, mTargetSurface.getWidth(), mTargetSurface.getHeight());
 	}
 
 	/**

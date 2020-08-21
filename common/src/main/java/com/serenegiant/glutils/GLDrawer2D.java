@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -292,16 +292,14 @@ public abstract class GLDrawer2D {
 			updateMvpMatrix(mvp_matrix, mvp_offset);
 		}
 		bindTexture(texId);
-		if (true) {
-			// XXX 共有コンテキストを使っていると頂点配列が壊れてしまうときがあるようなので都度読み込む
-			updateVertices();
-		}
 		if (validateProgram(hProgram)) {
 			drawVertices();
+			errCnt = 0;
 		} else {
 			if (errCnt++ == 0) {
 				Log.w(TAG, "draw:invalid program");
-				// FIXME シェーダーを再初期化する?
+				// シェーダーを再初期化する
+				resetShader();
 			}
 		}
 		finishDraw();

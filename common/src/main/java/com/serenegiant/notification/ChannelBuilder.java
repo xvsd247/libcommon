@@ -2,7 +2,7 @@
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.serenegiant.system.BuildCheck;
+import com.serenegiant.system.ContextUtils;
 import com.serenegiant.utils.ObjectHelper;
 import com.serenegiant.utils.XmlHelper;
 
@@ -120,7 +121,7 @@ public class ChannelBuilder {
 		
 		if (DEBUG) Log.v(TAG, "getBuilder:" + channelId);
 		final NotificationManager manager
-			= (NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
+			= ContextUtils.requireSystemService(context, NotificationManager.class);
 		final NotificationChannel channel = manager.getNotificationChannel(channelId);
 		if (channel != null) {
 			// 既にNotificationChannelが存在する場合はその設定を取得して生成
@@ -766,7 +767,7 @@ public class ChannelBuilder {
 	protected NotificationChannel createNotificationChannel(@NonNull final Context context) {
 
 		final NotificationManager manager
-			= (NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
+			= ContextUtils.requireSystemService(context, NotificationManager.class);
 		NotificationChannel channel = manager.getNotificationChannel(channelId);
 		if (createIfExists || (channel == null)) {
 			if (importance == NotificationManager.IMPORTANCE_NONE) {
@@ -833,7 +834,7 @@ public class ChannelBuilder {
 		
 		if (!TextUtils.isEmpty(groupId)) {
 			final NotificationManager manager
-				= (NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
+				= ContextUtils.requireSystemService(context, NotificationManager.class);
 			final List<NotificationChannelGroup> groups
 				= manager.getNotificationChannelGroups();
 

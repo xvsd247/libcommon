@@ -3,7 +3,7 @@ package com.serenegiant.system;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ package com.serenegiant.system;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.KeyguardManager;
-import android.content.Context;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.WindowManager;
@@ -44,10 +43,11 @@ public class PowerHelper {
 	public static void wake(final Activity activity, final boolean disableKeyguard, final long lockDelayed) {
 		try {
 			// スリープ状態から起床(android.permission.WAKE_LOCKが必要)
-			final PowerManager.WakeLock wakelock = ((PowerManager)activity.getSystemService(Context.POWER_SERVICE))
-				.newWakeLock(PowerManager.FULL_WAKE_LOCK
-							| PowerManager.ACQUIRE_CAUSES_WAKEUP
-							| PowerManager.ON_AFTER_RELEASE, "PowerHelper:disableLock");
+			final PowerManager.WakeLock wakelock
+				= ContextUtils.requireSystemService(activity, PowerManager.class)
+					.newWakeLock(PowerManager.FULL_WAKE_LOCK
+						| PowerManager.ACQUIRE_CAUSES_WAKEUP
+						| PowerManager.ON_AFTER_RELEASE, "PowerHelper:disableLock");
 			if (lockDelayed > 0) {
 				wakelock.acquire(lockDelayed);
 			} else {
@@ -55,7 +55,7 @@ public class PowerHelper {
 			}
 			// キーガードを解除(android.permission.DISABLE_KEYGUARDが必要)
 			try {
-				final KeyguardManager keyguard = (KeyguardManager)activity.getSystemService(Context.KEYGUARD_SERVICE);
+				final KeyguardManager keyguard = ContextUtils.requireSystemService(activity, KeyguardManager.class);
 				final KeyguardManager.KeyguardLock keylock = keyguard.newKeyguardLock(TAG);
 				keylock.disableKeyguard();
 			} finally {

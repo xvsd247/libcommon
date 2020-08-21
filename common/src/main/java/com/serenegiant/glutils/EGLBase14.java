@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package com.serenegiant.glutils;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
-import android.graphics.SurfaceTexture;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -35,9 +34,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import android.util.Log;
-import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 
 import com.serenegiant.system.BuildCheck;
 
@@ -49,16 +45,27 @@ import com.serenegiant.system.BuildCheck;
 	private static final boolean DEBUG = false;	// TODO set false on release
 	private static final String TAG = EGLBase14.class.getSimpleName();
 
-	private static final Context EGL_NO_CONTEXT = new Context(EGL14.EGL_NO_CONTEXT);
+	private static final Context EGL_NO_CONTEXT = wrap(EGL14.EGL_NO_CONTEXT);
 
-	@NonNull
-	private Context mContext = EGL_NO_CONTEXT;
-	@NonNull
-	private EGLDisplay mEglDisplay = EGL14.EGL_NO_DISPLAY;
-    private Config mEglConfig = null;
-	private int mGlVersion = 2;
+	/**
+	 * EGLレンダリングコンテキストラップしてContext extends IContextを生成する
+	 * @param context
+	 * @return
+	 */
+	public static Context wrap(@NonNull final EGLContext context) {
+		return new Context(context);
+	}
 
-	private EGLContext mDefaultContext = EGL14.EGL_NO_CONTEXT;
+	/**
+	 * EGLConfigをラップしてConfig extends IConfigを返す
+	 * @param eglConfig
+	 * @return
+	 */
+	public static Config wrap(@NonNull final EGLConfig eglConfig) {
+		return new Config(eglConfig);
+	}
+
+//--------------------------------------------------------------------------------
 
 	/**
 	 * EGLレンダリングコンテキストのホルダークラス
@@ -82,7 +89,15 @@ import com.serenegiant.system.BuildCheck;
 		public Object getEGLContext() {
 			return eglContext;
 		}
-	}
+
+		@NonNull
+		@Override
+		public String toString() {
+			return "Context{" +
+				"eglContext=" + eglContext +
+				'}';
+		}
+	} // Context
 
 	public static class Config extends IConfig {
 		public final EGLConfig eglConfig;
@@ -95,7 +110,15 @@ import com.serenegiant.system.BuildCheck;
 		public EGLConfig getEGLConfig() {
 			return eglConfig;
 		}
-	}
+
+		@NonNull
+		@Override
+		public String toString() {
+			return "Config{" +
+				"eglConfig=" + eglConfig +
+				'}';
+		}
+	} // Config
 
 	/**
 	 * EGLレンダリングコンテキストに紐付ける描画オブジェクト
@@ -108,15 +131,19 @@ import com.serenegiant.system.BuildCheck;
 		private boolean mOwnSurface;
 		private int viewPortX, viewPortY, viewPortWidth, viewPortHeight;
 
+		/**
+		 * Surface(Surface/SurfaceTexture/SurfaceHolder/SurfaceView)に
+		 * 関係付けられたEglSurfaceを生成するコンストラクタ
+		 * @param eglBase
+		 * @param surface
+		 * @throws IllegalArgumentException
+		 */
 		private EglSurface(@NonNull final EGLBase14 eglBase, final Object surface)
 			throws IllegalArgumentException {
 
 //			if (DEBUG) Log.v(TAG, "EglSurface:");
 			mEglBase = eglBase;
-			if ((surface instanceof Surface)
-				|| (surface instanceof SurfaceHolder)
-				|| (surface instanceof SurfaceTexture)
-				|| (surface instanceof SurfaceView)) {
+			if (GLUtils.isSupportedSurface(surface)) {
 				mEglSurface = mEglBase.createWindowSurface(surface);
 				mOwnSurface = true;
 				setViewPort(0, 0, getWidth(), getHeight());
@@ -204,11 +231,13 @@ import com.serenegiant.system.BuildCheck;
 			mEglBase.swap(mEglSurface);
 		}
 
+		@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
 		@Override
 		public void swap(final long presentationTimeNs) {
 			mEglBase.swap(mEglSurface, presentationTimeNs);
 		}
 
+		@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
 		public void setPresentationTime(final long presentationTimeNs) {
 			EGLExt.eglPresentationTimeANDROID(mEglBase.mEglDisplay,	// API>=18
 				mEglSurface, presentationTimeNs);
@@ -231,8 +260,22 @@ import com.serenegiant.system.BuildCheck;
 			return mEglBase.getSurfaceHeight(mEglSurface);
 		}
 
-	}
+		@NonNull
+		@Override
+		public String toString() {
+			return "EglSurface{" +
+				"mEglBase=" + mEglBase +
+				", mEglSurface=" + mEglSurface +
+				", mOwnSurface=" + mOwnSurface +
+				", viewPortX=" + viewPortX +
+				", viewPortY=" + viewPortY +
+				", viewPortWidth=" + viewPortWidth +
+				", viewPortHeight=" + viewPortHeight +
+				'}';
+		}
+	} // EglSurface
 
+//--------------------------------------------------------------------------------
 	/**
 	 * 現在のスレッドの既存のレンダリングコンテキストがあればそれを共有して
 	 * 新しいレンダリングコンテキストを生成する
@@ -244,17 +287,27 @@ import com.serenegiant.system.BuildCheck;
 	 * @param isRecordable
 	 * @return
 	 */
-	public static EGLBase createFromCurrent(final int maxClientVersion,
+	/*package*/ static EGLBase createFromCurrentImpl(final int maxClientVersion,
 		final boolean withDepthBuffer, final int stencilBits, final boolean isRecordable) {
 
 		Context context = null;
 		final EGLContext currentContext = EGL14.eglGetCurrentContext();
 		final EGLSurface currentSurface = EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW);
 		if ((currentContext != null) && (currentSurface != null)) {
-			context = new Context(currentContext);
+			context = wrap(currentContext);
 		}
 		return new EGLBase14(maxClientVersion, context, withDepthBuffer, stencilBits, isRecordable);
 	}
+
+//--------------------------------------------------------------------------------
+	@NonNull
+	private Context mContext = EGL_NO_CONTEXT;
+	@NonNull
+	private EGLDisplay mEglDisplay = EGL14.EGL_NO_DISPLAY;
+	   private Config mEglConfig = null;
+	private int mGlVersion = 2;
+
+	private EGLContext mDefaultContext = EGL14.EGL_NO_CONTEXT;
 
 	/**
 	 * コンストラクタ
@@ -263,7 +316,7 @@ import com.serenegiant.system.BuildCheck;
 	 * @param withDepthBuffer
 	 * @param isRecordable
 	 */
-	public EGLBase14(final int maxClientVersion,
+	/*package*/ EGLBase14(final int maxClientVersion,
 		@Nullable final Context sharedContext, final boolean withDepthBuffer,
 		final int stencilBits, final boolean isRecordable) {
 
@@ -278,13 +331,13 @@ import com.serenegiant.system.BuildCheck;
 	 * @param withDepthBuffer
 	 * @param isRecordable
 	 */
-	public EGLBase14(final int maxClientVersion,
+	/*package*/ EGLBase14(final int maxClientVersion,
 		final boolean withDepthBuffer,
 		final int stencilBits, final boolean isRecordable) {
 
 		super();
 //		if (DEBUG) Log.v(TAG, "Constructor:");
-		init(maxClientVersion, new Context(EGL14.eglGetCurrentContext()),
+		init(maxClientVersion, wrap(EGL14.eglGetCurrentContext()),
 			withDepthBuffer, stencilBits, isRecordable);
 	}
 
@@ -478,8 +531,8 @@ import com.serenegiant.system.BuildCheck;
 				final EGLContext context = createContext(sharedContext, config, 3);
 				if (EGL14.eglGetError() == EGL14.EGL_SUCCESS) {
 					// ここは例外生成したくないのでcheckEglErrorの代わりに自前でチェック
-					mEglConfig = new Config(config);
-					mContext = new Context(context);
+					mEglConfig = wrap(config);
+					mContext = wrap(context);
 					mGlVersion = 3;
 				}
 			}
@@ -496,8 +549,8 @@ import com.serenegiant.system.BuildCheck;
 				// create EGL rendering context
 				final EGLContext context = createContext(sharedContext, config, 2);
 				checkEglError("eglCreateContext");
-				mEglConfig = new Config(config);
-				mContext = new Context(context);
+				mEglConfig = wrap(config);
+				mContext = wrap(context);
 				mGlVersion = 2;
 			} catch (final Exception e) {
 				if (isRecordable) {
@@ -508,8 +561,8 @@ import com.serenegiant.system.BuildCheck;
 					// create EGL rendering context
 					final EGLContext context = createContext(sharedContext, config, 2);
 					checkEglError("eglCreateContext");
-					mEglConfig = new Config(config);
-					mContext = new Context(context);
+					mEglConfig = wrap(config);
+					mContext = wrap(context);
 					mGlVersion = 2;
 				}
 			}
@@ -522,8 +575,8 @@ import com.serenegiant.system.BuildCheck;
 			// create EGL rendering context
 			final EGLContext context = createContext(sharedContext, config, 1);
 			checkEglError("eglCreateContext");
-			mEglConfig = new Config(config);
-			mContext = new Context(context);
+			mEglConfig = wrap(config);
+			mContext = wrap(context);
 			mGlVersion = 1;
 		}
         // confirm whether the EGL rendering context is successfully created
@@ -777,6 +830,7 @@ import com.serenegiant.system.BuildCheck;
 			attribList[3] = 5;
 			attribList[5] = 6;
 			attribList[7] = 5;
+			attribList[9] = 0;
 			config = internalGetConfig(attribList);
 		}
         return config;

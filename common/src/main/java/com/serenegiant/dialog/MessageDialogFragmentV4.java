@@ -3,7 +3,7 @@ package com.serenegiant.dialog;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,12 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import android.util.Log;
 
+/**
+ * パーミッション要求前に説明を表示するためのDialogFragment実装
+ * deprecatedなので代わりにPermissionDescriptionDialogV4を使うこと
+ */
+@SuppressWarnings("deprecation")
+@Deprecated
 public class MessageDialogFragmentV4 extends DialogFragmentEx {
 //	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private static final String TAG = MessageDialogFragmentV4.class.getSimpleName();
@@ -41,6 +47,7 @@ public class MessageDialogFragmentV4 extends DialogFragmentEx {
 	/**
 	 * ダイアログの表示結果を受け取るためのコールバックリスナー
 	 */
+	@Deprecated
 	public static interface MessageDialogListener {
 		public void onMessageDialogResult(
 			@NonNull final MessageDialogFragmentV4 dialog, final int requestCode,

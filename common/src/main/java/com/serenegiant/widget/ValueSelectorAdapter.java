@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
-import com.serenegiant.common.R;
+import com.serenegiant.view.ViewUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,22 +91,7 @@ public class ValueSelectorAdapter extends ArrayAdapter<ValueSelectorAdapter.Valu
 			final TextView label;
 			rootView = mInflater.inflate(mLayoutId, parent, false);
 			final ViewHolder holder = new ViewHolder();
-			if (rootView instanceof TextView) {
-				holder.titleTv = (TextView)rootView;
-			} else {
-				try {
-					holder.titleTv = rootView.findViewById(mTitleId);
-				} catch (final Exception e) {
-					holder.titleTv = null;
-				}
-				if (holder.titleTv == null) {
-					try {
-						holder.titleTv = rootView.findViewById(R.id.title);
-					} catch (final Exception e) {
-						holder.titleTv = null;
-					}
-				}
-			}
+			holder.titleTv = ViewUtils.findTitleView(rootView);
 			rootView.setOnTouchListener(mOnTouchListener);
 			rootView.setTag(holder);
 		}

@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2019 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2020 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,7 +105,8 @@ public class FrameView extends View {
 		super(context, attrs, defStyleAttr);
 		metrics = getContext().getResources().getDisplayMetrics();
 		defaultFrameWidth = DEFAULT_FRAME_WIDTH_DP * metrics.density;
-		TypedArray attribs = context.obtainStyledAttributes(attrs, R.styleable.FrameView, defStyleAttr, 0);
+		TypedArray attribs = context.getTheme().obtainStyledAttributes(
+			attrs, R.styleable.FrameView, defStyleAttr, 0);
 		mFrameType = attribs.getInt(R.styleable.FrameView_frame_type, FRAME_TYPE_NONE);
 		mFrameWidth = attribs.getDimension(R.styleable.FrameView_frame_width, defaultFrameWidth);
 		mFrameColor = attribs.getColor(R.styleable.FrameView_frame_color, 0xffb1b1b1);
@@ -120,10 +121,10 @@ public class FrameView extends View {
 //		if (DEBUG) Log.v(TAG, "mFrameWidth=" + mFrameWidth);
 	}
 
-	@Override
-	protected void onMeasure(final int widthMeasureSpec, final int heightMeasureSpec) {
-		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-	}
+//	@Override
+//	protected void onMeasure(final int widthMeasureSpec, final int heightMeasureSpec) {
+//		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+//	}
 
 	@Override
 	protected void onLayout(final boolean changed, final int left, final int top, final int right, final int bottom) {
